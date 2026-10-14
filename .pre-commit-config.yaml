@@ -1,0 +1,57 @@
+default_language_version:
+  python: python3.15
+
+repos:
+  - repo: https://github.com/commitizen-tools/commitizen
+    rev: v4.19.2
+    hooks:
+      - id: commitizen
+      - id: commitizen-branch
+        stages: [manual]
+
+  - repo: https://github.com/astral-sh/uv-pre-commit
+    rev: 0.13.1
+    hooks:
+      - id: uv-lock
+        args: [--check]
+
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.17.0
+    hooks:
+      - id: ruff-check
+        args: [--fix]
+      - id: ruff-format
+
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+      - id: check-merge-conflict
+      - id: check-json
+      - id: check-yaml
+      - id: check-toml
+      - id: detect-private-key
+      - id: check-added-large-files
+      - id: end-of-file-fixer
+      - id: trailing-whitespace
+      - id: check-executables-have-shebangs
+
+  - repo: local
+    hooks:
+      - id: ty-check
+        name: Check Python types
+        entry: uv run --locked ty check
+        language: system
+        pass_filenames: false
+        types_or: [python, pyi]
+      - id: shell-check
+        name: Check shell scripts
+        entry: task lint:shell
+        language: system
+        pass_filenames: false
+        types: [shell]
+      - id: pytest
+        name: Run unit tests
+        entry: task test
+        language: system
+        pass_filenames: false
+        files: ^(labstack/|tests/|provision/|machines\.yml|pyproject\.toml|uv\.lock|Taskfile\.yml)

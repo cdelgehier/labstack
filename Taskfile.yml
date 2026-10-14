@@ -1,0 +1,118 @@
+version: '3'
+
+env:
+  PROFILES: '{{.PROFILES | default ""}}'
+  IMAGE_PATH: '{{.IMAGE_PATH | default ""}}'
+
+tasks:
+  default:
+    cmds: [task --list]
+
+  prerequisites:
+    aliases: [install]
+    desc: Install QEMU, ISO tools, Python 3.15 and project dependencies
+    preconditions:
+      - sh: test "$(uname -s)" = Darwin && test "$(uname -m)" = arm64
+        msg: This project requires macOS on Apple Silicon.
+      - sh: command -v brew >/dev/null 2>&1
+        msg: Install Homebrew from https://brew.sh before running this task.
+    cmds:
+      - |
+        set -eu
+        for formula in qemu xorriso uv shellcheck; do
+          if ! brew list --formula --versions "$formula" >/dev/null 2>&1; then
+            brew install "$formula"
+          fi
+        done
+      - uv python install --no-bin "$(cat .python-version)"
+      - uv sync --locked
+
+  up:
+    desc: Start the default machines and run their scripts (PROFILES=extra-worker adds w2)
+    cmds: [uv run --locked labstack up]
+
+  up:no-provision:
+    desc: Start the selected machines without scripts or healthchecks
+    cmds: [uv run --locked labstack up --no-provision]
+
+  down:
+    desc: Shut down the nodes and keep their disks
+    cmds: [uv run --locked labstack down]
+
+  destroy:
+    desc: Remove the nodes, private keys and kubeconfig
+    cmds: [uv run --locked labstack destroy]
+
+  reset:
+    desc: Recreate the saved topology and provisioning choice from the same image
+    cmds: [uv run --locked labstack reset]
+
+  status:
+    desc: Show the nodes and Kubernetes status
+    cmds: [uv run --locked labstack status]
+
+  connect:
+    desc: Open an SSH shell by machine name (task connect -- cp)
+    interactive: true
+    preconditions:
+      - sh: test -n {{.CLI_ARGS | shellQuote}}
+        msg: 'Choose a machine from machines.yml, for example: task connect -- cp.'
+    # Keep the supplied name as one literal argument for saved-inventory validation.
+    cmds:
+      - uv run --locked labstack ssh --node {{.CLI_ARGS | shellQuote}}
+
+  kubeconfig:
+    desc: Export admin access to ./kubeconfig for kubectl on the Mac
+    cmds: [uv run --locked labstack kubeconfig]
+
+  kubectl:
+    desc: Run kubectl 1.37.1 on the Mac (task kubectl -- get nodes)
+    env:
+      KUBECTL_ARGS: '{{.CLI_ARGS}}'
+    interactive: true
+    cmds: [uv run --locked labstack kubectl]
+
+  ci:
+    desc: Check code, shell scripts and the focused test suite
+    cmds:
+      - uv run --locked ruff check --no-fix .
+      - uv run --locked ruff format --check .
+      - uv run --locked ty check
+      - task lint:shell
+      - task test
+
+  lint:shell:
+    desc: Check shell scripts with ShellCheck and Bash
+    cmds:
+      - find provision -type f -name '*.sh' -print0 | xargs -0 shellcheck
+      - find provision -type f -name '*.sh' -print0 | xargs -0 -n 1 bash -n
+
+  test:
+    desc: Run tests without starting any VM
+    cmds: [uv run --locked pytest --junitxml=logs/pytest.xml]
+
+  test:runtime:
+    desc: Check guest access, networking and the installed cluster
+    cmds: [uv run --locked labstack test]
+
+  fmt:
+    desc: Format Python code
+    cmds: [uv run --locked ruff format .]
+
+  pre-commit:install:
+    desc: Install code and commit message hooks
+    cmds:
+      - uv run --locked pre-commit install
+      - uv run --locked pre-commit install --hook-type commit-msg
+
+  pre-commit:run:
+    desc: Run pre-commit hooks on staged files
+    cmds: [uv run --locked pre-commit run]
+
+  pre-commit:all:
+    desc: Run pre-commit hooks on all files
+    cmds: [uv run --locked pre-commit run --all-files]
+
+  pre-commit:autoupdate:
+    desc: Update pinned pre-commit hook versions
+    cmds: [uv run --locked pre-commit autoupdate]

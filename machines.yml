@@ -1,0 +1,87 @@
+boxes_catalogue: https://cdelgehier.github.io/image-factory/
+
+### DEFAULTS
+x-ubuntu: &ubuntu
+  box: ubuntu-26.04-arm64
+  cpus: 1
+  memory_mib: 1536
+  disk_gib: 20
+
+x-kubernetes-worker: &kubernetes_worker
+  <<: *ubuntu
+  scripts:
+    - provision/base/packages.sh
+    - provision/kubernetes/prepare.sh
+    - provision/kubernetes/worker.sh
+  depends_on:
+    cp:
+      condition: healthy # Wait for cp's API healthcheck to pass.
+      before: provision/kubernetes/worker.sh # Wait for cp's API before joining the cluster.
+  healthcheck:
+    test: [CMD, sudo, systemctl, is-active, kubelet]
+    interval: 5s
+    timeout: 10s
+    retries: 12
+
+### VMs
+machines:
+  cp:
+    box: ubuntu-26.04-arm64
+    cpus: 2
+    memory_mib: 2048
+    disk_gib: 20
+    networks:
+      nat: {}
+      lab:
+        ipv4_address: 192.168.76.10
+    ports:
+      - "52222:22"
+      - "16443:6443"
+    scripts:
+      - provision/base/packages.sh
+      - provision/kubernetes/prepare.sh
+      - provision/kubernetes/control-plane.sh
+      - provision/kubernetes/cilium.sh
+      - provision/kubernetes/addons.sh
+    healthcheck:
+      # API readiness can release worker joins before Cilium makes nodes Ready.
+      test: [CMD, sudo, kubectl, --kubeconfig=/etc/kubernetes/admin.conf, get, --raw=/readyz]
+      after: provision/kubernetes/control-plane.sh
+      interval: 5s
+      timeout: 10s
+      retries: 24
+    depends_on:
+      w1:
+        condition: completed # w1 must finish all scripts and its kubelet healthcheck.
+        before: provision/kubernetes/cilium.sh # Install Cilium on cp after w1 has joined.
+      w2:
+        condition: completed # An active w2 must also finish its scripts and healthcheck.
+        before: provision/kubernetes/cilium.sh # Wait for the second worker before installing Cilium.
+        required: false # Skip this dependency when the extra-worker profile is inactive.
+
+  w1:
+    <<: *kubernetes_worker
+    networks:
+      nat: {}
+      lab:
+        ipv4_address: 192.168.76.11
+    ports:
+      - "52232:22"
+
+  w2:
+    <<: *kubernetes_worker
+    profiles: [extra-worker]
+    networks:
+      nat: {}
+      lab:
+        ipv4_address: 192.168.76.12
+    ports:
+      - "52242:22"
+
+### NETWORKS
+networks:
+  nat:
+    driver: nat
+  lab:
+    driver: socket
+    subnet: 192.168.76.0/24

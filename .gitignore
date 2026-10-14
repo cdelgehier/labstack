@@ -1,0 +1,14 @@
+.cache/
+.state/
+logs/
+kubeconfig
+.cluster.lock
+.reset.json
+..reset.json-*
+.venv/
+__pycache__/
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+.DS_Store
