@@ -11,12 +11,13 @@ from labstack.models.state import State
 from labstack.settings import get_settings
 
 
-@pytest.fixture
-def saved_lab(tmp_path):
-    """Save custom YAML names and replace only the external SSH executable.
+@pytest.fixture(params=["terminal", "github-actions"])
+def saved_lab(tmp_path, request):
+    """Save custom YAML names and record calls to the external SSH executable.
 
-    Task, the command parser and saved-state validation remain real. The SSH stub
-    prints its arguments so a test can see which guest would receive the session.
+    Task, the command parser and saved-state validation remain real. The SSH spy
+    records each call and prints its arguments to identify the selected guest.
+    The call marker shows whether SSH ran even when Task writes CI annotations.
     All command-created paths stay inside the temporary lab.
     """
     definition = read_config().model_dump()
@@ -45,12 +46,19 @@ def saved_lab(tmp_path):
     (directory / "state.json").write_text(state.model_dump_json())
     binaries = tmp_path / "bin"
     binaries.mkdir()
-    ssh_stub = binaries / "ssh"
-    ssh_stub.write_text('#!/bin/sh\nprintf "%s\\n" "$@"\n')
-    ssh_stub.chmod(0o755)
-    return dict(
+    ssh_spy = binaries / "ssh"
+    ssh_spy.write_text(
+        '#!/bin/sh\ntouch "$LABSTACK_ROOT/ssh-called"\nprintf "%s\\n" "$@"\n'
+    )
+    ssh_spy.chmod(0o755)
+    environment = dict(
         os.environ, LABSTACK_ROOT=str(tmp_path), PATH=f"{binaries}:{os.environ['PATH']}"
     )
+    # Test both Task output modes, regardless of where pytest itself runs.
+    environment.pop("GITHUB_ACTIONS", None)
+    if request.param == "github-actions":
+        environment["GITHUB_ACTIONS"] = "true"
+    return environment
 
 
 @pytest.mark.parametrize("name", ["main", "worker-1"])
@@ -73,6 +81,7 @@ def test_task_connect_opens_the_machine_with_its_saved_yaml_name(
     )
 
     assert result.returncode == 0, result.stderr
+    assert (tmp_path / "ssh-called").exists()
     assert result.stdout.splitlines() == [
         "-F",
         str(tmp_path / ".state/ssh_config"),
@@ -99,7 +108,7 @@ def test_task_connect_rejects_unknown_or_inactive_machines(tmp_path, saved_lab, 
 
     assert result.returncode != 0
     assert "Available machines: main, worker-1" in result.stderr
-    assert result.stdout == ""
+    assert not (tmp_path / "ssh-called").exists()
 
 
 def test_task_connect_requires_a_machine_name(tmp_path, saved_lab):
@@ -113,6 +122,7 @@ def test_task_connect_requires_a_machine_name(tmp_path, saved_lab):
 
     assert result.returncode != 0
     assert "task connect -- cp" in result.stderr
+    assert not (tmp_path / "ssh-called").exists()
     assert not (tmp_path / "logs").exists()
 
 
@@ -135,4 +145,5 @@ def test_task_connect_treats_shell_text_as_a_machine_name(tmp_path, saved_lab):
 
     assert result.returncode != 0
     assert "Available machines: main, worker-1" in result.stderr
+    assert not (tmp_path / "ssh-called").exists()
     assert not marker.exists()
