@@ -3,6 +3,11 @@ set -euo pipefail
 readonly version="${KUBERNETES_VERSION:?Kubernetes version is required}"
 readonly node_ip="${NODE_IP:?Node IP is required}"
 readonly shared_dir="${SHARED_DIR:?Shared directory is required}"
+readonly ssh_user="${SSH_USER:?SSH user is required}"
+# Images can use another login or primary group. Keep admin access on that account.
+ssh_home="$(getent passwd "$ssh_user" | cut -d: -f6)"
+ssh_group="$(id -gn "$ssh_user")"
+test -n "$ssh_home"
 
 if [[ ! -f /etc/kubernetes/admin.conf ]]; then
   # The Mac reaches the API through a localhost port forward. Keep TLS validation enabled.
@@ -14,8 +19,8 @@ if [[ ! -f /etc/kubernetes/admin.conf ]]; then
     --service-cidr=10.96.0.0/12 \
     --skip-token-print
 fi
-install -d -m 0700 -o ubuntu -g ubuntu /home/ubuntu/.kube
-install -m 0600 -o ubuntu -g ubuntu /etc/kubernetes/admin.conf /home/ubuntu/.kube/config
+install -d -m 0700 -o "$ssh_user" -g "$ssh_group" "$ssh_home/.kube"
+install -m 0600 -o "$ssh_user" -g "$ssh_group" /etc/kubernetes/admin.conf "$ssh_home/.kube/config"
 install -d -m 0700 /root/.kube
 install -m 0600 /etc/kubernetes/admin.conf /root/.kube/config
 

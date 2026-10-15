@@ -263,15 +263,18 @@ def test_unavailable_scripts_fail_before_the_first_guest_command(
     assert runner_spy.steps == []
 
 
+@pytest.mark.parametrize("account", ["debian", "vagrant"])
 def test_guest_scripts_receive_node_context_and_keep_failure_logs(
-    script_inventory, tmp_path, monkeypatch
+    script_inventory, tmp_path, monkeypatch, account
 ):
     script = tmp_path / "provision/example/server.sh"
     script.write_text(
         'printf "%s\\n" "$NODE_NAME $NODE_IP $PRIMARY_NODE_IP $NODE_COUNT"\n'
+        'printf "SSH user: %s\\n" "$SSH_USER"\n'
         'printf "%s" "$NODE_NAME" >"$SHARED_DIR/result"\n'
         'echo "Setup failed" >&2\nexit 9\n'
     )
+    script_inventory["machines"]["w1"]["ssh_user"] = account
     config = Config.model_validate(script_inventory)
     state = State(
         config=config,
@@ -286,6 +289,7 @@ def test_guest_scripts_receive_node_context_and_keep_failure_logs(
     assert (tmp_path / "result").read_text() == "w1"
     log = (tmp_path / "w1-provision.log").read_text()
     assert "w1 192.168.76.11 192.168.76.10 2" in log
+    assert f"SSH user: {account}" in log
     assert "Setup failed" in log
 
 

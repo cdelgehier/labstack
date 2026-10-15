@@ -6,6 +6,8 @@ import pytest
 from pydantic import ValidationError
 
 from labstack import images
+from labstack.inventory import read_config
+from labstack.models.config import Config
 from labstack.models.image import BoxReference
 
 
@@ -81,6 +83,28 @@ def test_box_name_resolves_the_archive_and_disk_checksums(published_metadata):
     assert pin.disk_sha256 == "b" * 64
     assert str(pin.url).endswith("/v0.4.0/ubuntu-26.04-arm64.box")
     assert published_metadata.requests == list(published_metadata.responses)
+
+
+@pytest.mark.parametrize("account", ["debian", "vagrant"])
+def test_box_resolution_keeps_the_manifest_account(published_metadata, account):
+    _, manifest_url = published_metadata.responses
+    published_metadata.responses[manifest_url]["ssh_username"] = account
+    definition = read_config().model_dump()
+    for machine in definition["machines"].values():
+        machine["ssh_user"] = account
+
+    pins = images.resolve_boxes(Config.model_validate(definition))
+
+    assert {pin.ssh_user for pin in pins.values()} == {account}
+    assert published_metadata.requests == list(published_metadata.responses)
+
+
+def test_a_wrong_yaml_account_is_rejected_before_image_download(published_metadata):
+    definition = read_config().model_dump()
+    definition["machines"]["cp"]["ssh_user"] = "debian"
+
+    with pytest.raises(ValueError, match="cp: ssh_user must be 'ubuntu'"):
+        images.resolve_boxes(Config.model_validate(definition))
 
 
 def test_latest_version_is_selected_numerically(published_metadata):
@@ -256,7 +280,7 @@ def test_manifest_must_match_the_selected_arm64_box(published_metadata, change):
             manifest["box_metadata"]["disks"][0][change] = "invalid"
     else:
         field = {"account": "ssh_username"}.get(change, change)
-        manifest[field] = "invalid"
+        manifest[field] = "not a user" if change == "account" else "invalid"
 
     with pytest.raises(ValueError):
         images.resolve_box(

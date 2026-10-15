@@ -13,9 +13,11 @@ boxes_catalogue: https://cdelgehier.github.io/image-factory/
 machines:
   cp:
     box: ubuntu-26.04-arm64
+    ssh_user: ubuntu
     # Add resources, networks, ports and scripts as shown in machines.yml.
   w1:
     box: ubuntu-26.04-arm64
+    ssh_user: ubuntu
 ```
 
 For a complete example with every machine written out, use the
@@ -29,6 +31,7 @@ as the included recipe, with shared values repeated under each VM.
 | `memory_mib` | Memory in MiB |
 | `disk_gib` | Disk capacity in GiB, with a minimum of 16 |
 | `box` | Image Factory target name, with an optional `:X.Y.Z` version |
+| `ssh_user` | Guest login account used by SSH, cloud-init and provisioning; default `ubuntu` |
 | `profiles` | Optional groups that can enable this machine |
 | `networks` | Named networks and the machine's private IPv4 address |
 | `ports` | TCP ports published on the Mac, in `HOST:GUEST` format |
@@ -72,6 +75,7 @@ the inventory; the reusable blocks themselves do not create VMs:
 ```yaml
 x-ubuntu: &ubuntu
   box: ubuntu-26.04-arm64
+  ssh_user: ubuntu
   cpus: 1
   memory_mib: 1536
   disk_gib: 20
@@ -115,13 +119,49 @@ an exact version instead. A missing version stops startup with a clear error.
 The catalogue must offer the `qemu` provider for `arm64`. Its box uses the `libvirt`
 archive format; the runner extracts the QCOW2 disk directly.
 
-The chosen release, URL and checksums are saved in `.state/state.json` for each active
+The chosen release, URL, checksums and account are saved in `.state/state.json` for each active
 machine. Restarts and `task reset` reuse that image without reading the catalogue again.
 They also verify the cached disk against its saved checksum. To select a newer image,
 run `task destroy` and then `task up`. The first start needs network access for metadata,
 even when the disk is already cached. Machines sharing one box name use one resolution
 and one cached base disk.
-The current provisioning requires an Image Factory Ubuntu 26.04 ARM64 image with the `ubuntu` account.
+The included recipe uses Image Factory Ubuntu 26.04 ARM64. Its package scripts
+use `apt-get`, and runtime package checks use `dpkg-query`. Choose scripts suited
+to the guest OS when changing images.
+
+## Choose the guest account
+
+Set `ssh_user` on each machine to the account prepared by its image:
+
+```yaml
+machines:
+  cp:
+    box: debian-13-arm64
+    ssh_user: debian
+    # Add resources, networks, ports and scripts.
+  w1:
+    box: ubuntu-26.04-arm64
+    ssh_user: ubuntu
+    # Add this machine's networks, ports and scripts.
+```
+
+Other Linux images can use `vagrant` or another account. For published boxes,
+Labstack checks the name against the build manifest before downloading the disk.
+An omitted value defaults to `ubuntu`, so existing Ubuntu inventories and saved
+labs keep their login. Name the account explicitly when changing the box.
+
+Cloud-init prepares `/home/<ssh_user>`, installs the public key from this lab
+and replaces the image's public box key. It grants passwordless sudo to this account;
+password login and direct root SSH stay disabled. The account name must use lowercase
+letters, digits, underscores or hyphens, start with a letter or underscore, and have
+at most 32 characters. `root` is not accepted; use `sudo` for administrator access.
+
+SSH, SCP, rsync, healthchecks and scripts use the same saved account. Provisioning
+scripts run as root and receive `SSH_USER` when they need to create user-owned files.
+The control plane script uses the account's home and primary group for its kubeconfig,
+with directory mode `0700` and file mode `0600`.
+
+## Attach networks
 
 Each machine references the networks declared at the bottom of the file:
 
@@ -227,6 +267,7 @@ Scripts run as root through SSH. They receive these environment variables:
 | Variable | Meaning |
 | --- | --- |
 | `NODE_NAME` | Current machine's name |
+| `SSH_USER` | Configured guest account for user-owned files; scripts themselves run as root |
 | `NODE_IP` | Current machine's private IPv4 address |
 | `PRIMARY_NODE_IP` | Kubernetes control plane's private IPv4 address; first machine's address for other recipes |
 | `NODE_COUNT` | Number of active machines |

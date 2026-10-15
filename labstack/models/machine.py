@@ -6,6 +6,7 @@ from typing import Annotated, Self
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
+from labstack.models.access import GuestUsername
 from labstack.models.image import BoxReference
 from labstack.models.network import NetworkAttachment, PublishedPort
 from labstack.models.provisioning import Dependency, Healthcheck
@@ -24,6 +25,8 @@ class Machine(BaseModel):
 
     model_config = ConfigDict(extra="forbid", frozen=True)
     box: BoxReference
+    # Older saved labs used Ubuntu implicitly. New inventories should name the box account.
+    ssh_user: GuestUsername = "ubuntu"
     profiles: tuple[ProfileName, ...] = ()
     networks: dict[str, NetworkAttachment]
     ports: tuple[PublishedPort, ...]

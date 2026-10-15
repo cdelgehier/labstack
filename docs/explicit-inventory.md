@@ -20,6 +20,7 @@ boxes_catalogue: https://cdelgehier.github.io/image-factory/
 machines:
   cp:
     box: ubuntu-26.04-arm64
+    ssh_user: ubuntu
     cpus: 2
     memory_mib: 2048
     disk_gib: 20
@@ -60,6 +61,7 @@ machines:
 
   w1:
     box: ubuntu-26.04-arm64
+    ssh_user: ubuntu
     cpus: 1
     memory_mib: 1536
     disk_gib: 20
@@ -90,6 +92,7 @@ machines:
 
   w2:
     box: ubuntu-26.04-arm64
+    ssh_user: ubuntu
     cpus: 1
     memory_mib: 1536
     disk_gib: 20
@@ -131,7 +134,8 @@ networks:
 ## Read the settings
 
 Each key under `machines` is a VM name. `box` selects its Ubuntu image from the
-catalogue. CPU, memory and disk settings apply only to that VM.
+catalogue, and `ssh_user` selects its guest account. CPU, memory and disk settings
+apply only to that VM.
 Changing `w1.memory_mib`, for example, does not change either of the other VMs.
 
 The `networks` block at the bottom defines the shared networks. Each machine

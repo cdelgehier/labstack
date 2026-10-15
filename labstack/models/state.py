@@ -47,8 +47,12 @@ class State(BaseModel):
                 raise ValueError("Saved box metadata must match the active machines.")
             for name, machine in self.config.active_machines.items():
                 pin = self.resolved_boxes[name]
-                if pin.target != machine.box.target or (
-                    machine.box.version and pin.release != f"v{machine.box.version}"
+                if (
+                    pin.target != machine.box.target
+                    or pin.ssh_user != machine.ssh_user
+                    or (
+                        machine.box.version and pin.release != f"v{machine.box.version}"
+                    )
                 ):
                     raise ValueError(
                         "Saved box metadata must match its machine reference."

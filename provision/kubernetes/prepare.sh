@@ -36,6 +36,8 @@ install -d -m 0755 /etc/containerd
 containerd config default >/etc/containerd/config.toml
 # Kubelet and containerd must use the same cgroup manager.
 sed -ri 's/SystemdCgroup = false/SystemdCgroup = true/' /etc/containerd/config.toml
+# Debian's runtime defaults to /usr/lib/cni, but Kubernetes and Cilium install here.
+sed -ri 's@bin_dir = "/usr/lib/cni"@bin_dir = "/opt/cni/bin"@' /etc/containerd/config.toml
 systemctl enable --now containerd
 systemctl restart containerd
 

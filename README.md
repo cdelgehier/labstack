@@ -11,7 +11,7 @@
 ![Pydantic](https://img.shields.io/badge/Pydantic-E92063.svg?style=for-the-badge&logo=Pydantic&logoColor=white)
 
 Labstack is a personal lab tool for macOS on Apple Silicon.
-It runs Ubuntu ARM64 virtual machines with QEMU and HVF, using a YAML inventory
+It runs Linux ARM64 virtual machines with QEMU and HVF, using a YAML inventory
 and ordered provisioning scripts.
 
 Build labs for CKAD, CKA and CKS practice, or use the same VMs for Argo CD,
@@ -36,7 +36,8 @@ task connect -- cp
 ```
 
 `task prerequisites` installs the required tools, Python 3.15 and the locked
-project dependencies. `task connect -- cp` opens an SSH shell as `ubuntu`.
+project dependencies. `task connect -- cp` opens an SSH shell with the machine's
+`ssh_user`, which is `ubuntu` in the included inventory.
 Run your Kubernetes commands from that shell.
 Use the machine key from `machines.yml` after `--`, for example
 `task connect -- w1`. Use `task status` to list the active machines.
@@ -87,6 +88,7 @@ disk directory. This example shows the control plane resources and script list:
 machines:
   cp:
     box: ubuntu-26.04-arm64
+    ssh_user: ubuntu
     cpus: 2
     memory_mib: 2048
     disk_gib: 20
@@ -106,6 +108,8 @@ Image names resolve through the [Image Factory catalogue](https://cdelgehier.git
 Labstack selects the latest stable image when creating the lab, checks its
 archive and disk checksums, and saves the version for later starts.
 Use `box: ubuntu-26.04-arm64:0.4.0` to request an exact version.
+Set `ssh_user` to the image's account, such as `ubuntu`, `debian` or `vagrant`.
+Cloud-init gives that account the lab's SSH key and passwordless sudo.
 
 Each machine chooses its own ordered `scripts` list. Add scripts for another
 workload under `provision/` and replace that list.

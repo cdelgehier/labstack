@@ -40,7 +40,8 @@ ssh -F .state/ssh_config w1 'hostname; ip -br address'
 scp -F .state/ssh_config ./example.conf w1:/tmp/
 ```
 
-Private keys stay on the Mac. All guest access uses the `ubuntu` account.
+Private keys stay on the Mac. Guest access uses each machine's `ssh_user` from
+the saved inventory. The included Ubuntu machines use `ubuntu`.
 For a manual installation, use the private addresses below for node communication.
 By default, the Mac can reach the API through `127.0.0.1:16443`.
 The port comes from the control plane's mapping for guest port `6443`; include `127.0.0.1` in the API certificate's subject alternative names.
@@ -103,7 +104,9 @@ task up IMAGE_PATH="$HOME/git/perso/image-factory/dist/ubuntu-26.04-arm64/disk/u
 
 `IMAGE_PATH` overrides the image for every machine in a new environment.
 It bypasses catalogue and manifest requests.
-The disk must be a standalone QCOW2 image with the Image Factory Ubuntu account and cloud-init setup.
+The disk must be a standalone Linux ARM64 QCOW2 image with SSH, sudo and cloud-init.
+Set each machine's `ssh_user` to that image's account. Local disks have no published
+manifest, so Labstack cannot check that account before startup.
 It is checked and copied into the cache, so later writes to the original file cannot affect the nodes.
 
 ## Optional API access from the Mac

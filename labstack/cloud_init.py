@@ -16,7 +16,7 @@ def cloud_config(node: Node, state: State, public_key: str) -> dict[str, Any]:
     """Prepare first-boot access and identity without installing a workload.
 
     Each environment has its own SSH key. The factory's public Vagrant key is replaced,
-    password access stays disabled, and sudo remains available to the ubuntu account.
+    password access stays disabled, and sudo belongs to the selected SSH account.
     Hostnames, host entries and disk growth apply in both normal and no-provision mode;
     software installation belongs to the inventory's script lists.
     """
@@ -28,7 +28,8 @@ def cloud_config(node: Node, state: State, public_key: str) -> dict[str, Any]:
         "manage_etc_hosts": False,
         "users": [
             {
-                "name": "ubuntu",
+                "name": node.ssh_user,
+                "homedir": f"/home/{node.ssh_user}",
                 "groups": ["sudo"],
                 "shell": "/bin/bash",
                 "sudo": "ALL=(ALL) NOPASSWD:ALL",
@@ -49,9 +50,9 @@ def cloud_config(node: Node, state: State, public_key: str) -> dict[str, Any]:
             {"path": "/etc/hosts", "permissions": "0644", "content": hosts},
             # The factory image contains a public box key. Replace it for direct QEMU use.
             {
-                "path": "/home/ubuntu/.ssh/authorized_keys",
+                "path": f"/home/{node.ssh_user}/.ssh/authorized_keys",
                 "permissions": "0600",
-                "owner": "ubuntu:ubuntu",
+                "owner": f"{node.ssh_user}:{node.ssh_user}",
                 "defer": True,
                 "content": public_key + "\n",
             },

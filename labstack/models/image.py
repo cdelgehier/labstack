@@ -11,6 +11,8 @@ from pydantic import (
     model_validator,
 )
 
+from labstack.models.access import GuestUsername
+
 STABLE_VERSION = r"(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)"
 SHA256 = Annotated[str, Field(pattern=r"^[0-9a-f]{64}$")]
 
@@ -44,7 +46,8 @@ class Box(BaseModel):
 
     The archive checksum protects the download; the disk checksum protects extraction
     and later cache reuse. These fields are saved together so a reset can keep the same
-    image even when the catalogue has changed or is unavailable.
+    image even when the catalogue has changed or is unavailable. The pinned account
+    keeps access setup consistent with the image's original public box key.
     """
 
     model_config = ConfigDict(extra="forbid", frozen=True)
@@ -53,6 +56,8 @@ class Box(BaseModel):
     url: HttpUrl
     box_sha256: SHA256
     disk_sha256: SHA256
+    # Preserve old Ubuntu pins while recording the account from new build manifests.
+    ssh_user: GuestUsername = "ubuntu"
 
     @field_validator("url")
     @classmethod
@@ -144,17 +149,18 @@ class ManifestArchive(BaseModel):
 
 
 class BuildManifest(BaseModel):
-    """Validate the guest and disk contract required by this Ubuntu environment.
+    """Validate the Linux guest and disk contract required by this runner.
 
-    SSH access and the provisioning scripts use the ubuntu account. Rejecting another
-    account, architecture or disk layout here gives a useful error before VM startup.
+    The manifest supplies the box's default SSH account. The inventory must agree
+    with it so access setup replaces the right account's public box key.
+    Incompatible communicators, architectures and disk layouts fail before VM startup.
     Additional factory build fields are outside the runner's metadata contract.
     """
 
     target: str
     architecture: Literal["arm64"]
     communicator: Literal["ssh"]
-    ssh_username: Literal["ubuntu"]
+    ssh_username: GuestUsername
     box_metadata: BoxMetadata
     box: ManifestArchive
     disk_sha256: SHA256

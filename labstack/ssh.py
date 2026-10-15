@@ -56,15 +56,16 @@ def write_ssh_config(state: State) -> None:
     Accepting a new host key allows first boot without an interactive prompt. Later
     connections still check that key, and a fresh environment gets a fresh known-hosts
     file. Paths are quoted so a project directory containing spaces remains usable.
+    Each Host entry sets its own login; a wildcard User would hide later overrides.
     """
     settings = get_settings()
     text = (
-        f'Host *\n  User ubuntu\n  HostName 127.0.0.1\n  IdentityFile "{settings.state_dir / "id_ed25519"}"\n'
+        f'Host *\n  HostName 127.0.0.1\n  IdentityFile "{settings.state_dir / "id_ed25519"}"\n'
         f'  UserKnownHostsFile "{settings.state_dir / "known_hosts"}"\n  StrictHostKeyChecking accept-new\n'
         "  IdentitiesOnly yes\n  ConnectTimeout 5\n  ServerAliveInterval 15\n"
     )
     for node in nodes(state.config):
-        text += f"Host {node.name}\n  Port {node.ssh_port}\n"
+        text += f"Host {node.name}\n  Port {node.ssh_port}\n  User {node.ssh_user}\n"
     (settings.state_dir / "ssh_config").write_text(text)
 
 
