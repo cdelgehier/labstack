@@ -113,6 +113,9 @@ Cloud-init gives that account the lab's SSH key and passwordless sudo.
 
 Each machine chooses its own ordered `scripts` list. Add scripts for another
 workload under `provision/` and replace that list.
+Use per-machine `environment` and `env_file` for guest variables in scripts,
+healthchecks and login shells. Services can read `/etc/labstack/environment`.
+See [guest environment variables](docs/environment.md) for the YAML and systemd examples.
 The default lab starts `cp` and `w1`. For a new lab with a second worker, run:
 
 ```sh

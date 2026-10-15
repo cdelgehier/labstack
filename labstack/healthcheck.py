@@ -4,6 +4,7 @@ import shlex
 import subprocess
 import time
 
+from labstack.environment import shell_environment
 from labstack.logger import get_logger
 from labstack.models.machine import Node
 from labstack.models.state import State
@@ -24,6 +25,7 @@ def wait_for_health(node: Node, state: State) -> None:
     check = node.healthcheck
     assert check is not None
     command = shlex.join(check.test[1:]) if check.test[0] == "CMD" else check.test[1]
+    script = shell_environment(state.environment_for(node.name)) + command + "\n"
     log = get_settings().logs_dir / f"{node.name}-healthcheck.log"
     logger.info("Checking guest health.", node=node.name)
     if check.start_period:
@@ -39,7 +41,9 @@ def wait_for_health(node: Node, state: State) -> None:
             stream.flush()
             try:
                 result = subprocess.run(
-                    ssh_command(node, command),
+                    ssh_command(node, "bash -s"),
+                    input=script,
+                    text=True,
                     stdout=stream,
                     stderr=subprocess.STDOUT,
                     timeout=check.timeout,

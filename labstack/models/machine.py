@@ -7,6 +7,7 @@ from typing import Annotated, Self
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from labstack.models.access import GuestUsername
+from labstack.models.environment import Environment
 from labstack.models.image import BoxReference
 from labstack.models.network import NetworkAttachment, PublishedPort
 from labstack.models.provisioning import Dependency, Healthcheck
@@ -23,10 +24,12 @@ class Machine(BaseModel):
     Network addresses and ports are checked against the complete inventory.
     """
 
-    model_config = ConfigDict(extra="forbid", frozen=True)
+    model_config = ConfigDict(extra="forbid", frozen=True, hide_input_in_errors=True)
     box: BoxReference
     # Older saved labs used Ubuntu implicitly. New inventories should name the box account.
     ssh_user: GuestUsername = "ubuntu"
+    env_file: tuple[str, ...] = Field(default=(), max_length=16)
+    environment: Environment = Field(default_factory=dict)
     profiles: tuple[ProfileName, ...] = ()
     networks: dict[str, NetworkAttachment]
     ports: tuple[PublishedPort, ...]
@@ -36,6 +39,29 @@ class Machine(BaseModel):
     cpus: int = Field(default=2, ge=1, le=16)
     memory_mib: int = Field(default=2048, ge=1024, le=32768)
     disk_gib: int = Field(default=20, ge=16, le=512)
+
+    @field_validator("env_file", mode="before")
+    @classmethod
+    def accept_environment_file(cls, value: str | tuple[str, ...]) -> tuple[str, ...]:
+        """Accept one dotenv path as well as an ordered list, as in Compose."""
+        return (value,) if isinstance(value, str) else value
+
+    @field_validator("env_file")
+    @classmethod
+    def require_environment_paths(cls, values: tuple[str, ...]) -> tuple[str, ...]:
+        """Keep dotenv files relative to the inventory, with no parent traversal."""
+        for value in values:
+            path = Path(value)
+            if (
+                not path.parts
+                or path.is_absolute()
+                or ".." in path.parts
+                or "\x00" in value
+            ):
+                raise ValueError(
+                    "Use relative env_file paths inside the inventory directory."
+                )
+        return values
 
     @model_validator(mode="after")
     def validate_ports(self) -> Self:

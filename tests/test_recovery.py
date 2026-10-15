@@ -145,6 +145,27 @@ def test_reset_can_resume_after_failure_before_new_state_exists(
     assert not (get_settings().root / ".reset.json").exists()
 
 
+def test_reset_reuses_environment_without_reading_source_files(saved_environment):
+    original, _ = saved_environment
+    definition = original.config.model_dump()
+    definition["machines"]["cp"]["env_file"] = ["deleted.env"]
+    saved = State.model_validate(
+        {
+            **original.model_dump(),
+            "config": definition,
+            "environments": {"cp": {"LAB_NAME": "saved"}, "w1": {}},
+        }
+    )
+    cluster.save_state(saved)
+
+    cluster.reset()
+
+    recreated = cluster.read_state()
+    assert recreated.environments == saved.environments
+    assert recreated.environment_for("cp") == {"LAB_NAME": "saved"}
+    assert recreated.instance_id != saved.instance_id
+
+
 def test_ordinary_up_cannot_bypass_a_pending_reset(saved_environment, monkeypatch):
     original, disk = saved_environment
     settings = get_settings()

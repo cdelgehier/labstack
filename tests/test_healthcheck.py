@@ -54,6 +54,33 @@ def test_cmd_healthcheck_preserves_literal_arguments(health_state, tmp_path):
     assert not marker.exists()
 
 
+@pytest.mark.parametrize("kind", ["CMD", "CMD-SHELL"])
+def test_healthchecks_receive_saved_values_without_expanding_them(
+    health_state, tmp_path, kind
+):
+    marker = tmp_path / "unexpected"
+    value = f"literal '$HOME' $(touch {marker})"
+    definition = health_state.config.model_dump()
+    check = ["python3", "-c", "import os; print(os.environ['LAB_NAME'])"]
+    if kind == "CMD-SHELL":
+        definition["machines"]["cp"]["healthcheck"] = {
+            "test": [kind, 'printf "%s" "$LAB_NAME"']
+        }
+    else:
+        definition["machines"]["cp"]["healthcheck"] = {"test": [kind, *check]}
+    state = State(
+        config=Config.model_validate(definition),
+        instance_id="health-env",
+        base_images=health_state.base_images,
+        environments={"cp": {"LAB_NAME": value}, "w1": {}},
+    )
+
+    healthcheck.wait_for_health(nodes(state.config)[0], state)
+
+    assert value in (tmp_path / "cp-healthcheck.log").read_text()
+    assert not marker.exists()
+
+
 def test_shell_healthcheck_can_retry_until_a_service_is_ready(health_state, tmp_path):
     flag = tmp_path / "attempted"
     definition = nodes(health_state.config)[0].model_dump()

@@ -6,6 +6,7 @@ import subprocess
 from pathlib import Path
 from typing import Any
 
+from labstack.environment import shell_environment, systemd_environment
 from labstack.inventory import nodes
 from labstack.models.machine import Node
 from labstack.models.state import State
@@ -48,6 +49,28 @@ def cloud_config(node: Node, state: State, public_key: str) -> dict[str, Any]:
         "resize_rootfs": True,
         "write_files": [
             {"path": "/etc/hosts", "permissions": "0644", "content": hosts},
+            # Shell and systemd escaping differ. Both files carry the same saved values.
+            {
+                "path": "/etc/labstack/environment",
+                "permissions": "0640",
+                "owner": f"root:{node.ssh_user}",
+                "defer": True,
+                "content": systemd_environment(state.environment_for(node.name)),
+            },
+            {
+                "path": "/etc/labstack/environment.sh",
+                "permissions": "0640",
+                "owner": f"root:{node.ssh_user}",
+                "defer": True,
+                "content": shell_environment(state.environment_for(node.name)),
+            },
+            {
+                "path": "/etc/profile.d/labstack.sh",
+                "permissions": "0644",
+                "owner": "root:root",
+                "content": "if [ -r /etc/labstack/environment.sh ]; then\n"
+                "    . /etc/labstack/environment.sh\nfi\n",
+            },
             # The factory image contains a public box key. Replace it for direct QEMU use.
             {
                 "path": f"/home/{node.ssh_user}/.ssh/authorized_keys",

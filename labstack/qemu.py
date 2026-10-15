@@ -282,6 +282,8 @@ def check_ports(node: Node) -> None:
     for mapping in node.ports:
         port = mapping.published
         with socket.socket() as connection:
+            # Match QEMU: closed SSH sessions in TIME_WAIT must not block a restart.
+            connection.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
             try:
                 connection.bind(("127.0.0.1", port))
             except OSError as error:

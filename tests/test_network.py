@@ -14,6 +14,7 @@ from labstack import (
 )
 from labstack.inventory import nodes, read_config
 from labstack.models.config import Config
+from labstack.models.machine import Node
 from labstack.models.state import State
 from labstack.settings import get_settings
 
@@ -330,3 +331,35 @@ def test_arbitrary_published_ports_are_checked_before_qemu_starts():
             ValueError, match=f"Host port {published} is already in use"
         ):
             qemu.check_ports(nodes(config)[0])
+
+
+def test_recently_closed_connections_do_not_block_a_guest_restart():
+    # QEMU enables address reuse. The preflight must allow the same TIME_WAIT sockets.
+    with qemu.socket.socket() as listener:
+        listener.setsockopt(qemu.socket.SOL_SOCKET, qemu.socket.SO_REUSEADDR, 1)
+        listener.bind(("127.0.0.1", 0))
+        listener.listen(1)
+        address = listener.getsockname()
+        with qemu.socket.socket() as client:
+            client.settimeout(2)
+            client.connect(address)
+            connection, _ = listener.accept()
+            connection.close()
+            assert client.recv(1) == b""
+    definition = nodes(read_config())[0].model_dump()
+    definition["ports"] = [f"{address[1]}:22"]
+
+    qemu.check_ports(Node.model_validate(definition))
+
+
+def test_address_reuse_still_rejects_a_live_listener():
+    with qemu.socket.socket() as listener:
+        listener.setsockopt(qemu.socket.SOL_SOCKET, qemu.socket.SO_REUSEADDR, 1)
+        listener.bind(("127.0.0.1", 0))
+        listener.listen(1)
+        port = listener.getsockname()[1]
+        definition = nodes(read_config())[0].model_dump()
+        definition["ports"] = [f"{port}:22"]
+
+        with pytest.raises(ValueError, match=f"Host port {port} is already in use"):
+            qemu.check_ports(Node.model_validate(definition))

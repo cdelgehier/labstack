@@ -32,6 +32,8 @@ as the included recipe, with shared values repeated under each VM.
 | `disk_gib` | Disk capacity in GiB, with a minimum of 16 |
 | `box` | Image Factory target name, with an optional `:X.Y.Z` version |
 | `ssh_user` | Guest login account used by SSH, cloud-init and provisioning; default `ubuntu` |
+| `env_file` | One dotenv path or an ordered list, relative to the inventory directory |
+| `environment` | Guest variables as a string mapping; overrides `env_file` values |
 | `profiles` | Optional groups that can enable this machine |
 | `networks` | Named networks and the machine's private IPv4 address |
 | `ports` | TCP ports published on the Mac, in `HOST:GUEST` format |
@@ -160,6 +162,14 @@ SSH, SCP, rsync, healthchecks and scripts use the same saved account. Provisioni
 scripts run as root and receive `SSH_USER` when they need to create user-owned files.
 The control plane script uses the account's home and primary group for its kubeconfig,
 with directory mode `0700` and file mode `0600`.
+
+## Set guest variables
+
+Each machine can use `env_file` and `environment` for its own variables. They are
+available to root provisioning scripts, healthchecks and guest login shells.
+Systemd services can load `/etc/labstack/environment` explicitly. See
+[guest environment variables](environment.md) for examples, priority rules and
+how values are saved across restarts and resets.
 
 ## Attach networks
 
