@@ -80,7 +80,7 @@ def test_restart_checks_the_saved_checksum_before_starting_guests(
         cluster.up(None, None, no_provision=True)
 
 
-@pytest.mark.parametrize("change", ["missing_machine", "target", "version"])
+@pytest.mark.parametrize("change", ["missing_machine", "target", "version", "account"])
 def test_saved_pins_must_match_the_active_machine_references(guest_environment, change):
     cluster.up(None, None, no_provision=True)
     definition = cluster.read_state().model_dump()
@@ -88,6 +88,8 @@ def test_saved_pins_must_match_the_active_machine_references(guest_environment, 
         del definition["resolved_boxes"]["w1"]
     elif change == "target":
         definition["resolved_boxes"]["cp"]["target"] = "debian-13-arm64"
+    elif change == "account":
+        definition["resolved_boxes"]["cp"]["ssh_user"] = "debian"
     else:
         definition["config"]["machines"]["cp"]["box"]["version"] = "0.5.0"
 

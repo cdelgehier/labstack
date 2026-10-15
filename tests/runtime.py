@@ -20,10 +20,9 @@ logger = get_logger(__name__)
 
 GUEST_CHECK = r"""set -euo pipefail
 . /etc/os-release
-test "$ID" = ubuntu
-test "$VERSION_ID" = 26.04
+printf 'Guest OS: %s %s\n' "$ID" "$VERSION_ID"
 test "$(uname -m)" = aarch64
-test "$(id -un)" = ubuntu
+test "$(id -un)" = "$2"
 sudo -n true
 sudo cloud-init status --wait
 test "$(lsblk -bndo SIZE /dev/vda)" -eq "$(( $1 * 1024 * 1024 * 1024 ))"
@@ -224,8 +223,11 @@ def check_environment(state: State) -> None:
     host_keys = set()
     try:
         for node in nodes(state.config):
-            logger.info("Checking Ubuntu, SSH, disk and networking.", node=node.name)
-            output = remote(node, f"bash -s -- {node.disk_gib}", GUEST_CHECK)
+            logger.info("Checking Linux, SSH, disk and networking.", node=node.name)
+            command = shlex.join(
+                ["bash", "-s", "--", str(node.disk_gib), node.ssh_user]
+            )
+            output = remote(node, command, GUEST_CHECK)
             (directory / f"{node.name}-checks.log").write_text(output)
             identity = remote(node, "cat /etc/machine-id").strip()
             host_key = ssh_key_identity(

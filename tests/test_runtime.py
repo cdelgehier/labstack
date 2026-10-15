@@ -1,12 +1,41 @@
 import os
 import subprocess
 import sys
+from unittest.mock import Mock
 
 import pytest
 
 from labstack import inventory
+from labstack.models.config import Config
+from labstack.models.state import State
 from labstack.settings import get_settings
 from tests.runtime import POLICY_CHECK, save_diagnostic, ssh_key_identity
+
+
+@pytest.mark.parametrize("account", ["debian", "vagrant"])
+def test_guest_runtime_checks_receive_the_saved_account(tmp_path, monkeypatch, account):
+    from tests import runtime
+
+    definition = inventory.read_config().model_dump()
+    definition["machines"]["cp"]["ssh_user"] = account
+    state = State(
+        config=Config.model_validate(definition),
+        instance_id="runtime-test",
+        base_images=dict.fromkeys(("cp", "w1"), tmp_path / "base"),
+    )
+    # Stop at identity validation so the test never reaches networking or Kubernetes.
+    remote_stub = Mock(side_effect=["guest checks", "invalid", "ssh-ed25519 KEY cp"])
+    monkeypatch.setattr(runtime, "remote", remote_stub)
+    monkeypatch.setattr(runtime, "save_diagnostic", Mock(return_value=True))
+    monkeypatch.setattr(get_settings(), "logs_dir", tmp_path)
+
+    with pytest.raises(ValueError, match="Invalid machine identity"):
+        runtime.check_environment(state)
+
+    node, command, script = remote_stub.call_args_list[0].args
+    assert node.ssh_user == account
+    assert command == f"bash -s -- 20 {account}"
+    assert script == runtime.GUEST_CHECK
 
 
 def test_host_key_comparison_ignores_the_hostname_comment():

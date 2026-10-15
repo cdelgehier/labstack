@@ -98,6 +98,7 @@ def resolve_box(reference: BoxReference, catalogue_base_url: str) -> Box:
         url=provider.url,
         box_sha256=provider.checksum,
         disk_sha256=manifest.disk_sha256,
+        ssh_user=manifest.ssh_username,
     )
 
 
@@ -150,7 +151,13 @@ def resolve_boxes(config: Config) -> dict[str, Box]:
         # Resolve shared references together so every clone uses the same release snapshot.
         if node.box not in pins:
             pins[node.box] = resolve_box(node.box, str(config.boxes_catalogue))
-        result[node.name] = pins[node.box]
+        pin = pins[node.box]
+        # A different login could leave the image's known public key on its original account.
+        if node.ssh_user != pin.ssh_user:
+            raise ValueError(
+                f"{node.name}: ssh_user must be {pin.ssh_user!r} for {pin.target}."
+            )
+        result[node.name] = pin
     return result
 
 

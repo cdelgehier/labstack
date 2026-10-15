@@ -3,6 +3,7 @@ boxes_catalogue: https://cdelgehier.github.io/image-factory/
 ### DEFAULTS
 x-ubuntu: &ubuntu
   box: ubuntu-26.04-arm64
+  ssh_user: ubuntu # Use the account prepared by this box.
   cpus: 1
   memory_mib: 1536
   disk_gib: 20
@@ -27,6 +28,7 @@ x-kubernetes-worker: &kubernetes_worker
 machines:
   cp:
     box: ubuntu-26.04-arm64
+    ssh_user: ubuntu
     cpus: 2
     memory_mib: 2048
     disk_gib: 20

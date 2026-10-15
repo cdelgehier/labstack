@@ -109,6 +109,8 @@ def run_script(node: Node, filename: str, state: State) -> None:
     script = script_path(filename).read_text()
     environment = {
         "NODE_NAME": node.name,
+        # Scripts run as root, so their login account must be passed explicitly.
+        "SSH_USER": node.ssh_user,
         "NODE_IP": node.address,
         "PRIMARY_NODE_IP": primary_node(state.config).address,
         "NODE_COUNT": str(len(nodes(state.config))),
