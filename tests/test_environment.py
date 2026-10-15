@@ -146,7 +146,12 @@ def test_missing_or_external_env_files_fail_before_guest_creation(
         resolve_environments(read_config(environment_inventory), tmp_path)
 
 
-@pytest.mark.parametrize("contents", [b"X=" + b"a" * 1024**2, b"X=\xff\n"])
+@pytest.mark.parametrize(
+    "contents",
+    [b"X=" + b"a" * 1024**2, b"X=\xff\n"],
+    # Pytest otherwise includes the full 1 MiB payload in logs and JUnit case names.
+    ids=["oversized", "invalid-utf8"],
+)
 def test_oversized_or_non_utf8_environment_files_are_rejected(
     environment_inventory, contents
 ):
