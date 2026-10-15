@@ -9,6 +9,7 @@ import uuid
 from pathlib import Path
 
 from labstack.cloud_init import prepare_node
+from labstack.environment import resolve_environments
 from labstack.images import (
     acquire_image,
     resolve_boxes,
@@ -162,6 +163,13 @@ def up(
         if saved
         else resolve_config(existing.config if existing else None, profiles)
     )
+    # Resolve files before downloads or guest creation. Existing labs keep their snapshot.
+    if saved:
+        environments = saved.environments
+    elif existing:
+        environments = existing.environments
+    else:
+        environments = resolve_environments(config)
     if not no_provision:
         validate_scripts(config)
     prepare_runtime_directory()
@@ -193,6 +201,7 @@ def up(
             instance_id=uuid.uuid4().hex[:12],
             base_images=base_images,
             resolved_boxes=resolved_boxes,
+            environments=environments,
             resource_layout="namespaced",
         )
         settings.state_dir.mkdir(mode=0o700, exist_ok=True)

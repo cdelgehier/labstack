@@ -293,6 +293,31 @@ def test_guest_scripts_receive_node_context_and_keep_failure_logs(
     assert "Setup failed" in log
 
 
+def test_root_scripts_receive_saved_environment_without_values_in_ssh_arguments(
+    script_inventory, tmp_path, monkeypatch
+):
+    marker = tmp_path / "unexpected"
+    value = f"private '$HOME' $(touch {marker})"
+    script = tmp_path / "provision/example/server.sh"
+    script.write_text('printf "%s" "$LAB_NAME" >"$SHARED_DIR/environment-result"\n')
+    config = Config.model_validate(script_inventory)
+    state = State(
+        config=config,
+        instance_id="environment-script",
+        base_images=dict.fromkeys(config.active_machines, tmp_path / "base"),
+        environments={"cp": {"LAB_NAME": value}, "w1": {}},
+    )
+    ssh_spy = Mock(wraps=LocalSSHFake(tmp_path))
+    monkeypatch.setattr(provisioning, "ssh_command", ssh_spy)
+
+    provisioning.run_script(nodes(config)[0], "provision/example/server.sh", state)
+
+    assert (tmp_path / "environment-result").read_text() == value
+    assert not marker.exists()
+    assert value not in ssh_spy.call_args.args[1]
+    assert value not in (tmp_path / "cp-provision.log").read_text()
+
+
 def test_worker_context_uses_the_control_plane_even_when_the_worker_is_first(
     tmp_path, monkeypatch
 ):
@@ -445,6 +470,41 @@ def test_no_provision_starts_guests_then_plain_up_provisions_the_same_disks(
         ("cp", "provision/example/server.sh"),
         ("w1", "provision/example/client.sh"),
     ]
+
+
+def test_up_saves_environment_even_when_provisioning_is_disabled(
+    script_inventory, guest_environment, tmp_path, monkeypatch
+):
+    script_inventory["machines"]["cp"]["env_file"] = ["lab.env"]
+    (tmp_path / "lab.env").write_text("LAB_NAME=original\n")
+    monkeypatch.setattr(
+        inventory, "load_definition", Mock(return_value=script_inventory)
+    )
+
+    cluster.up(None, None, no_provision=True)
+    assert cluster.read_state().environment_for("cp") == {"LAB_NAME": "original"}
+    (tmp_path / "lab.env").unlink()
+    cluster.up(None, None, no_provision=True)
+
+    assert cluster.read_state().environment_for("cp") == {"LAB_NAME": "original"}
+    assert guest_environment.steps == []
+
+
+def test_missing_environment_file_stops_startup_before_image_resolution(
+    script_inventory, guest_environment, monkeypatch
+):
+    script_inventory["machines"]["cp"]["env_file"] = ["missing.env"]
+    monkeypatch.setattr(
+        inventory, "load_definition", Mock(return_value=script_inventory)
+    )
+    resolver = Mock(side_effect=AssertionError("Must validate environment first"))
+    monkeypatch.setattr(cluster, "resolve_boxes", resolver)
+
+    with pytest.raises(ValueError, match="environment file"):
+        cluster.up(None, None, no_provision=True)
+
+    assert not (get_settings().state_dir / "state.json").exists()
+    assert not resolver.called
 
 
 def test_no_provision_does_not_require_script_files_but_plain_up_checks_them(

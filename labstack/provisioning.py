@@ -4,6 +4,7 @@ import shlex
 import subprocess
 from pathlib import Path
 
+from labstack.environment import shell_environment
 from labstack.healthcheck import wait_for_health
 from labstack.inventory import nodes, primary_node
 from labstack.logger import get_logger
@@ -106,7 +107,11 @@ def run_script(node: Node, filename: str, state: State) -> None:
     shared files are not added to the structured application log.
     """
     settings = get_settings()
-    script = script_path(filename).read_text()
+    # Load user values inside the root shell; sudo would otherwise discard them.
+    script = (
+        shell_environment(state.environment_for(node.name))
+        + script_path(filename).read_text()
+    )
     environment = {
         "NODE_NAME": node.name,
         # Scripts run as root, so their login account must be passed explicitly.

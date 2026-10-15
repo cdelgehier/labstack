@@ -25,7 +25,7 @@ class Config(BaseModel):
     introduce an unnoticed address, port or script-path conflict.
     """
 
-    model_config = ConfigDict(extra="forbid", frozen=True)
+    model_config = ConfigDict(extra="forbid", frozen=True, hide_input_in_errors=True)
     boxes_catalogue: HttpUrl
     profiles: tuple[ProfileName, ...] = ()
     machines: dict[MachineName, Machine] = Field(min_length=1, max_length=16)
