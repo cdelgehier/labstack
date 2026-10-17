@@ -52,6 +52,10 @@ machine names, unavailable guests, missing arguments and safe argument quoting.
 Provisioning tests cover script anchors, execution order, node context, invalid paths,
 readiness checkpoints, dependency cycles, inactive and optional dependencies,
 stopping after a failure, join command validation and skipping scripts with `up:no-provision`, then provisioning the same disks.
+Package tests cover APT and dpkg lock retries, the shared five-minute deadline,
+and immediate failures for other errors. On Linux, they also hold a real POSIX
+lock while APT uses an empty, isolated sources list. This check needs no network
+or package installation and runs in the existing CI job.
 
 `task test:runtime` checks Ubuntu and ARM64, SSH, sudo, cloud-init completion, disk growth, unique machine identities and SSH host keys, and communication between every pair of nodes.
 After successful provisioning with the Kubernetes recipe, it also checks Kubernetes versions, node readiness, API access from the Mac, metrics, cross-node DNS and HTTP, and volume persistence after a pod is replaced.

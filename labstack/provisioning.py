@@ -131,7 +131,8 @@ def run_script(node: Node, filename: str, state: State) -> None:
             "-s",
         ]
     )
-    with (settings.logs_dir / f"{node.name}-provision.log").open("a") as stream:
+    log_path = settings.logs_dir / f"{node.name}-provision.log"
+    with log_path.open("a") as stream:
         stream.write(f"\nRunning {filename}\n")
         stream.flush()
         # Write as the guest works, so an interrupted installation still has useful logs.
@@ -144,7 +145,7 @@ def run_script(node: Node, filename: str, state: State) -> None:
             timeout=1800,
         )
     if result.returncode:
-        raise ValueError(f"{filename} failed on {node.name}. See its provisioning log.")
+        raise ValueError(f"{filename} failed on {node.name}. See {log_path}.")
 
 
 def provision(state: State) -> None:
