@@ -83,6 +83,12 @@ old VM resource.
 `du` shows the space used on the Mac, not the configured virtual capacity of each disk.
 If startup fails or you interrupt it, use `task status` to inspect the nodes and `task down` to stop them.
 Logs include serial output, provisioning output, healthcheck attempts and runtime diagnostics.
+The package recipes wait up to 300 seconds per command when APT or dpkg reports
+a lock held by another process. They retry every five seconds; native dpkg waits
+use the same budget. Other package errors stop immediately. Command output, lock
+waits and timeouts stay in `logs/<machine>-provision.log`. The failure message
+shows the exact path, including when `LABSTACK_LOGS_DIR` changes it.
+After the cause is fixed, `task up` runs the scripts again on the same disks.
 Shutdown allows up to two minutes per guest for container cleanup and disk writes.
 If a guest still does not stop, Labstack stops its QEMU process and records a warning.
 

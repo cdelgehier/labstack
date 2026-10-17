@@ -283,9 +283,10 @@ def test_guest_scripts_receive_node_context_and_keep_failure_logs(
     )
     monkeypatch.setattr(provisioning, "ssh_command", LocalSSHFake(tmp_path))
 
-    with pytest.raises(ValueError, match="server.sh failed on w1"):
+    with pytest.raises(ValueError, match="server.sh failed on w1") as failure:
         provisioning.run_script(nodes(config)[1], "provision/example/server.sh", state)
 
+    assert str(tmp_path / "w1-provision.log") in str(failure.value)
     assert (tmp_path / "result").read_text() == "w1"
     log = (tmp_path / "w1-provision.log").read_text()
     assert "w1 192.168.76.11 192.168.76.10 2" in log
