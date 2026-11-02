@@ -12,7 +12,7 @@ from labstack.settings import get_settings
 
 
 @pytest.fixture(params=["terminal", "github-actions"])
-def saved_lab(tmp_path, request):
+def saved_lab(tmp_path, request, kubernetes_inventory):
     """Save custom YAML names and record calls to the external SSH executable.
 
     Task, the command parser and saved-state validation remain real. The SSH spy
@@ -20,7 +20,7 @@ def saved_lab(tmp_path, request):
     The call marker shows whether SSH ran even when Task writes CI annotations.
     All command-created paths stay inside the temporary lab.
     """
-    definition = read_config().model_dump()
+    definition = read_config(kubernetes_inventory).model_dump()
     renamed = dict(
         zip(definition["machines"], ["main", "worker-1", "extra"], strict=True)
     )

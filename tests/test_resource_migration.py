@@ -66,10 +66,10 @@ def legacy_root():
 
 
 @pytest.fixture
-def legacy_environment(legacy_root, monkeypatch):
+def legacy_environment(legacy_root, monkeypatch, kubernetes_inventory):
     """Keep real legacy files and state, with every process left untouched."""
     settings = get_settings()
-    config = read_config()
+    config = read_config(kubernetes_inventory)
     (legacy_root / "machines.yml").write_text(config.model_dump_json())
     monkeypatch.setattr(settings, "root", legacy_root)
     monkeypatch.setattr(settings, "state_dir", legacy_root / ".state")

@@ -23,9 +23,9 @@ class ScriptRunnerSpy:
 
 
 @pytest.fixture
-def dependency_inventory(tmp_path, monkeypatch):
+def dependency_inventory(tmp_path, monkeypatch, kubernetes_inventory):
     """Give each guest real scripts and remove the default Kubernetes recipe."""
-    definition = read_config().model_dump()
+    definition = read_config(kubernetes_inventory).model_dump()
     directory = tmp_path / "provision" / "example"
     directory.mkdir(parents=True)
     for name in ("base", "server", "client", "addons"):

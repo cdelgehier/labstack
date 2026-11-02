@@ -50,8 +50,10 @@ def test_cli_passes_the_selected_inventory_to_up(tmp_path, monkeypatch, option):
     assert spy.options["no_provision"] is False
 
 
-def test_selected_inventory_does_not_read_the_default_file(tmp_path):
-    definition = read_config().model_dump(mode="json")
+def test_selected_inventory_does_not_read_the_default_file(
+    tmp_path, kubernetes_inventory
+):
+    definition = read_config(kubernetes_inventory).model_dump(mode="json")
     definition["machines"]["cp"]["memory_mib"] = 4096
     selected = tmp_path / "machines.yml.custom"
     selected.write_text(yaml.safe_dump(definition))
@@ -62,8 +64,10 @@ def test_selected_inventory_does_not_read_the_default_file(tmp_path):
     assert config.machines["cp"].memory_mib == 4096
 
 
-def test_selected_inventory_cannot_replace_an_existing_topology(tmp_path):
-    existing = read_config()
+def test_selected_inventory_cannot_replace_an_existing_topology(
+    tmp_path, kubernetes_inventory
+):
+    existing = read_config(kubernetes_inventory)
     definition = existing.model_dump(mode="json")
     definition["machines"]["cp"]["memory_mib"] = 4096
     selected = tmp_path / "machines.yml.custom"
@@ -73,10 +77,12 @@ def test_selected_inventory_cannot_replace_an_existing_topology(tmp_path):
         resolve_config(existing, None, path=selected)
 
 
-def test_an_identical_inventory_keeps_saved_profiles(tmp_path):
-    existing = resolve_config(None, ("extra-worker",))
+def test_an_identical_inventory_keeps_saved_profiles(tmp_path, kubernetes_inventory):
+    existing = resolve_config(None, ("extra-worker",), path=kubernetes_inventory)
     selected = tmp_path / "machines.yml.copy"
-    selected.write_text(yaml.safe_dump(read_config().model_dump(mode="json")))
+    selected.write_text(
+        yaml.safe_dump(read_config(kubernetes_inventory).model_dump(mode="json"))
+    )
 
     assert resolve_config(existing, None, path=selected) == existing
 
@@ -84,9 +90,9 @@ def test_an_identical_inventory_keeps_saved_profiles(tmp_path):
 @pytest.mark.parametrize("absolute", [False, True])
 @pytest.mark.parametrize("no_provision", [False, True])
 def test_up_keeps_project_scripts_and_resolves_selected_env_files(
-    tmp_path, monkeypatch, absolute, no_provision
+    tmp_path, monkeypatch, absolute, no_provision, kubernetes_inventory
 ):
-    definition = read_config().model_dump(mode="json")
+    definition = read_config(kubernetes_inventory).model_dump(mode="json")
     definition["machines"]["cp"]["env_file"] = ["custom.env"]
     directory = tmp_path / "recipes"
     directory.mkdir()

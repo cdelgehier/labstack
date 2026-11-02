@@ -37,11 +37,11 @@ class GuestStartStub:
 
 
 @pytest.fixture
-def saved_environment(tmp_path, monkeypatch, published_box):
+def saved_environment(tmp_path, monkeypatch, published_box, kubernetes_inventory):
     """Use real inventory, image checksums and files around fake guest boundaries."""
     settings = get_settings()
     original_root = settings.root
-    config = read_config()
+    config = read_config(kubernetes_inventory)
     for machine in config.active_machines.values():
         for filename in machine.scripts:
             destination = tmp_path / filename

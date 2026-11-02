@@ -44,10 +44,10 @@ class GuestShutdownFake:
 
 @pytest.mark.parametrize("duration", [70, 90])
 def test_slow_guest_shutdown_finishes_before_qemu_is_forced(
-    tmp_path, monkeypatch, duration
+    tmp_path, monkeypatch, duration, kubernetes_inventory
 ):
     state = State(
-        config=read_config(),
+        config=read_config(kubernetes_inventory),
         instance_id="test",
         base_images=dict.fromkeys(("cp", "w1"), tmp_path / "base"),
     )
@@ -62,9 +62,11 @@ def test_slow_guest_shutdown_finishes_before_qemu_is_forced(
     assert guest.forced == []
 
 
-def test_a_guest_that_never_shuts_down_still_has_a_bounded_wait(tmp_path, monkeypatch):
+def test_a_guest_that_never_shuts_down_still_has_a_bounded_wait(
+    tmp_path, monkeypatch, kubernetes_inventory
+):
     state = State(
-        config=read_config(),
+        config=read_config(kubernetes_inventory),
         instance_id="test",
         base_images=dict.fromkeys(("cp", "w1"), tmp_path / "base"),
     )

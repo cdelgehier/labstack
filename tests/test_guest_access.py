@@ -15,9 +15,9 @@ from labstack.ssh import write_ssh_config
 
 
 @pytest.fixture
-def access_state(tmp_path):
+def access_state(tmp_path, kubernetes_inventory):
     """Read two different guest accounts through the public YAML inventory."""
-    definition = read_config().model_dump(mode="json")
+    definition = read_config(kubernetes_inventory).model_dump(mode="json")
     definition["machines"]["cp"]["ssh_user"] = "debian"
     definition["machines"]["w1"]["ssh_user"] = "vagrant"
     inventory = tmp_path / "machines.yml"
@@ -72,8 +72,8 @@ def test_openssh_selects_each_saved_account(access_state, tmp_path, monkeypatch)
 
 
 @pytest.mark.parametrize("account", ["debian", "vagrant", "cloud-user", "_lab"])
-def test_machine_accepts_safe_linux_accounts(account):
-    definition = read_config().model_dump()
+def test_machine_accepts_safe_linux_accounts(account, kubernetes_inventory):
+    definition = read_config(kubernetes_inventory).model_dump()
     definition["machines"]["cp"]["ssh_user"] = account
 
     config = Config.model_validate(definition)
@@ -85,16 +85,18 @@ def test_machine_accepts_safe_linux_accounts(account):
     "account",
     [None, "", "root", "../root", "a b", "$(id)", "user\nUser root", "a" * 33],
 )
-def test_machine_rejects_unsafe_or_root_accounts(account):
-    definition = read_config().model_dump()
+def test_machine_rejects_unsafe_or_root_accounts(account, kubernetes_inventory):
+    definition = read_config(kubernetes_inventory).model_dump()
     definition["machines"]["cp"]["ssh_user"] = account
 
     with pytest.raises(ValidationError, match="ssh_user"):
         Config.model_validate(definition)
 
 
-def test_saved_inventory_without_an_account_keeps_ubuntu(tmp_path, published_box):
-    definition = read_config().model_dump()
+def test_saved_inventory_without_an_account_keeps_ubuntu(
+    tmp_path, published_box, kubernetes_inventory
+):
+    definition = read_config(kubernetes_inventory).model_dump()
     for machine in definition["machines"].values():
         machine.pop("ssh_user", None)
     state = State.model_validate(
