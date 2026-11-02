@@ -12,16 +12,16 @@ from labstack.inventory import nodes, read_config, resolve_config
 from labstack.models.state import State
 
 
-def test_default_cluster_has_one_control_plane_and_one_worker():
-    config = resolve_config(None, None)
+def test_kubernetes_recipe_has_one_control_plane_and_one_worker(kubernetes_inventory):
+    config = resolve_config(None, None, path=kubernetes_inventory)
     machines = nodes(config)
 
     assert [node.name for node in machines] == ["cp", "w1"]
     assert [node.address for node in machines] == ["192.168.76.10", "192.168.76.11"]
 
 
-def test_second_worker_has_its_own_network_identity():
-    machines = nodes(resolve_config(None, ("extra-worker",)))
+def test_second_worker_has_its_own_network_identity(kubernetes_inventory):
+    machines = nodes(resolve_config(None, ("extra-worker",), path=kubernetes_inventory))
 
     assert len(machines) == 3
     assert len({node.ssh_port for node in machines}) == 3
@@ -30,25 +30,31 @@ def test_second_worker_has_its_own_network_identity():
 
 
 @pytest.mark.parametrize("profiles", [("missing",), ("../extra-worker",)])
-def test_invalid_profile_selection_is_rejected(profiles):
+def test_invalid_profile_selection_is_rejected(profiles, kubernetes_inventory):
     with pytest.raises(ValidationError):
-        resolve_config(None, profiles)
+        resolve_config(None, profiles, path=kubernetes_inventory)
 
 
-def test_resume_keeps_the_existing_profiles():
-    existing = resolve_config(None, ("extra-worker",))
+def test_resume_keeps_the_existing_profiles(kubernetes_inventory):
+    existing = resolve_config(None, ("extra-worker",), path=kubernetes_inventory)
 
-    assert resolve_config(existing, None) == existing
+    assert resolve_config(existing, None, path=kubernetes_inventory) == existing
 
 
-def test_resume_refuses_to_change_the_existing_profiles():
+def test_resume_refuses_to_change_the_existing_profiles(kubernetes_inventory):
     with pytest.raises(ValueError, match="task destroy"):
-        resolve_config(resolve_config(None, ("extra-worker",)), ())
+        resolve_config(
+            resolve_config(None, ("extra-worker",), path=kubernetes_inventory),
+            (),
+            path=kubernetes_inventory,
+        )
 
 
-def test_infra_cloud_init_sets_access_without_installing_kubernetes(tmp_path):
+def test_infra_cloud_init_sets_access_without_installing_kubernetes(
+    tmp_path, kubernetes_inventory
+):
     state = State(
-        config=resolve_config(None, None),
+        config=resolve_config(None, None, path=kubernetes_inventory),
         instance_id="test-instance",
         base_images={"cp": tmp_path / "base", "w1": tmp_path / "base"},
     )
@@ -65,8 +71,8 @@ def test_infra_cloud_init_sets_access_without_installing_kubernetes(tmp_path):
     assert "containerd" not in json.dumps(cp_data)
 
 
-def test_only_the_nat_interface_has_a_default_route():
-    config = network_config(nodes(read_config())[0])
+def test_only_the_nat_interface_has_a_default_route(kubernetes_inventory):
+    config = network_config(nodes(read_config(kubernetes_inventory))[0])
     interfaces = config["ethernets"]
 
     assert interfaces["nat0"]["dhcp4"] is True
@@ -75,18 +81,22 @@ def test_only_the_nat_interface_has_a_default_route():
     assert "routes" not in interfaces["cluster0"]
 
 
-def test_nat_interface_keeps_its_name_when_initramfs_has_already_started_dhcp():
-    interfaces = network_config(nodes(read_config())[0])["ethernets"]
+def test_nat_interface_keeps_its_name_when_initramfs_has_already_started_dhcp(
+    kubernetes_inventory,
+):
+    interfaces = network_config(nodes(read_config(kubernetes_inventory))[0])[
+        "ethernets"
+    ]
 
     assert "set-name" not in interfaces["nat0"]
     assert interfaces["nat0"]["match"]["macaddress"] == "52:54:00:76:00:00"
 
 
-def test_qemu_forwards_ports_on_localhost_only(tmp_path):
+def test_qemu_forwards_ports_on_localhost_only(tmp_path, kubernetes_inventory):
     from labstack.qemu import qemu_command
 
     state = State(
-        config=resolve_config(None, ("extra-worker",)),
+        config=resolve_config(None, ("extra-worker",), path=kubernetes_inventory),
         instance_id="test",
         base_images=dict.fromkeys(("cp", "w1", "w2"), tmp_path / "base"),
     )
@@ -100,14 +110,16 @@ def test_qemu_forwards_ports_on_localhost_only(tmp_path):
     assert "hubport,id=port2,hubid=0,netdev=link2" in command
 
 
-def test_shutdown_rejects_a_monitor_owned_by_another_vm(tmp_path, monkeypatch):
+def test_shutdown_rejects_a_monitor_owned_by_another_vm(
+    tmp_path, monkeypatch, kubernetes_inventory
+):
     from labstack import (
         cluster,
         qemu,
     )
 
     state = State(
-        config=read_config(),
+        config=read_config(kubernetes_inventory),
         instance_id="test",
         base_images={"cp": tmp_path / "base", "w1": tmp_path / "base"},
     )

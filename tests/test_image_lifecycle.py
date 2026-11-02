@@ -18,8 +18,10 @@ from labstack.settings import get_settings
 
 
 @pytest.fixture
-def guest_environment(tmp_path, monkeypatch, published_box):
+def guest_environment(tmp_path, monkeypatch, published_box, kubernetes_inventory):
     """Keep saved state real while replacing QEMU and SSH boundaries."""
+    shutil.copyfile(kubernetes_inventory, tmp_path / "machines.yml")
+    monkeypatch.setattr(get_settings(), "root", tmp_path)
     directory = tmp_path / "state"
     directory.mkdir()
     (directory / "id_ed25519").write_text("test key")

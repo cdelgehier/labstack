@@ -86,10 +86,12 @@ def test_box_name_resolves_the_archive_and_disk_checksums(published_metadata):
 
 
 @pytest.mark.parametrize("account", ["debian", "vagrant"])
-def test_box_resolution_keeps_the_manifest_account(published_metadata, account):
+def test_box_resolution_keeps_the_manifest_account(
+    published_metadata, account, kubernetes_inventory
+):
     _, manifest_url = published_metadata.responses
     published_metadata.responses[manifest_url]["ssh_username"] = account
-    definition = read_config().model_dump()
+    definition = read_config(kubernetes_inventory).model_dump()
     for machine in definition["machines"].values():
         machine["ssh_user"] = account
 
@@ -99,8 +101,10 @@ def test_box_resolution_keeps_the_manifest_account(published_metadata, account):
     assert published_metadata.requests == list(published_metadata.responses)
 
 
-def test_a_wrong_yaml_account_is_rejected_before_image_download(published_metadata):
-    definition = read_config().model_dump()
+def test_a_wrong_yaml_account_is_rejected_before_image_download(
+    published_metadata, kubernetes_inventory
+):
+    definition = read_config(kubernetes_inventory).model_dump()
     definition["machines"]["cp"]["ssh_user"] = "debian"
 
     with pytest.raises(ValueError, match="cp: ssh_user must be 'ubuntu'"):

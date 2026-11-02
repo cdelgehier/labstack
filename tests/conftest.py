@@ -1,8 +1,16 @@
-"""Share pinned image metadata across cache and lifecycle tests."""
+"""Share saved recipes and pinned image metadata across offline tests."""
+
+from pathlib import Path
 
 import pytest
 
 from labstack.models.image import Box
+
+
+@pytest.fixture
+def kubernetes_inventory() -> Path:
+    """Use the saved Kubernetes recipe while the active inventory can change."""
+    return Path(__file__).resolve().parents[1] / "machines.yml.cks"
 
 
 @pytest.fixture

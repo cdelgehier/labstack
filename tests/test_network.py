@@ -20,9 +20,9 @@ from labstack.settings import get_settings
 
 
 def test_named_networks_and_published_ports_reach_cloud_init_qemu_and_ssh(
-    tmp_path, monkeypatch
+    tmp_path, monkeypatch, kubernetes_inventory
 ):
-    definition = yaml.safe_load((get_settings().root / "machines.yml").read_text())
+    definition = yaml.safe_load(kubernetes_inventory.read_text())
     definition["networks"] = {
         "external": {"driver": "nat"},
         "internal": {"driver": "socket", "subnet": "172.28.16.0/25"},
@@ -69,8 +69,10 @@ def test_named_networks_and_published_ports_reach_cloud_init_qemu_and_ssh(
     assert "172.28.16.11 w1" in hosts["content"]
 
 
-def test_kubeconfig_uses_the_published_control_plane_port(tmp_path, monkeypatch):
-    definition = read_config().model_dump()
+def test_kubeconfig_uses_the_published_control_plane_port(
+    tmp_path, monkeypatch, kubernetes_inventory
+):
+    definition = read_config(kubernetes_inventory).model_dump()
     definition["machines"]["cp"]["ports"] = ["52222:22", "17443:6443"]
     config = Config.model_validate(definition)
     state = State(
@@ -95,9 +97,9 @@ def test_kubeconfig_uses_the_published_control_plane_port(tmp_path, monkeypatch)
 
 
 def test_kubernetes_helpers_find_the_control_plane_after_a_worker(
-    tmp_path, monkeypatch
+    tmp_path, monkeypatch, kubernetes_inventory
 ):
-    definition = read_config().model_dump()
+    definition = read_config(kubernetes_inventory).model_dump()
     machines = definition["machines"]
     definition["machines"] = {name: machines[name] for name in ("w1", "cp", "w2")}
     config = Config.model_validate(definition)
@@ -122,8 +124,10 @@ def test_kubernetes_helpers_find_the_control_plane_after_a_worker(
 @pytest.mark.parametrize(
     "failure", ["missing_api", "pod_overlap", "second_control_plane"]
 )
-def test_reordered_kubernetes_recipe_still_validates_its_requirements(failure):
-    definition = read_config().model_dump()
+def test_reordered_kubernetes_recipe_still_validates_its_requirements(
+    failure, kubernetes_inventory
+):
+    definition = read_config(kubernetes_inventory).model_dump()
     machines = definition["machines"]
     definition["machines"] = {name: machines[name] for name in ("w1", "cp", "w2")}
     if failure == "missing_api":
@@ -142,9 +146,9 @@ def test_reordered_kubernetes_recipe_still_validates_its_requirements(failure):
 
 
 def test_long_machine_names_and_project_paths_use_short_private_sockets(
-    tmp_path, monkeypatch
+    tmp_path, monkeypatch, kubernetes_inventory
 ):
-    definition = read_config().model_dump()
+    definition = read_config(kubernetes_inventory).model_dump()
     for machine in definition["machines"].values():
         machine.update(scripts=[], healthcheck=None, depends_on={})
     name = "a" * 63
@@ -205,16 +209,18 @@ def test_runtime_directory_rejects_a_link_without_changing_its_target(
 
 
 @pytest.mark.parametrize("address", ["192.168.76.0", "192.168.76.255", "192.168.77.10"])
-def test_private_ip_must_be_a_usable_host_in_the_named_subnet(address):
-    definition = read_config().model_dump()
+def test_private_ip_must_be_a_usable_host_in_the_named_subnet(
+    address, kubernetes_inventory
+):
+    definition = read_config(kubernetes_inventory).model_dump()
     definition["machines"]["cp"]["networks"]["lab"]["ipv4_address"] = address
 
     with pytest.raises(ValidationError, match="host address"):
         Config.model_validate(definition)
 
 
-def test_two_machines_cannot_share_the_same_private_ip():
-    definition = read_config().model_dump()
+def test_two_machines_cannot_share_the_same_private_ip(kubernetes_inventory):
+    definition = read_config(kubernetes_inventory).model_dump()
     definition["machines"]["w1"]["networks"]["lab"]["ipv4_address"] = "192.168.76.10"
 
     with pytest.raises(ValidationError, match="Private IPs must be unique"):
@@ -222,8 +228,10 @@ def test_two_machines_cannot_share_the_same_private_ip():
 
 
 @pytest.mark.parametrize("prefix", ["10.0.2", "10.244.0", "10.96.0"])
-def test_private_subnet_cannot_overlap_nat_pods_or_services(prefix):
-    definition = read_config().model_dump()
+def test_private_subnet_cannot_overlap_nat_pods_or_services(
+    prefix, kubernetes_inventory
+):
+    definition = read_config(kubernetes_inventory).model_dump()
     definition["networks"]["lab"]["subnet"] = f"{prefix}.0/24"
     for index, machine in enumerate(definition["machines"].values()):
         machine["networks"]["lab"]["ipv4_address"] = f"{prefix}.{10 + index}"
@@ -233,8 +241,10 @@ def test_private_subnet_cannot_overlap_nat_pods_or_services(prefix):
 
 
 @pytest.mark.parametrize("subnet", ["8.8.8.0/24", "127.0.0.0/24", "192.168.76.1/24"])
-def test_network_requires_a_private_subnet_with_a_network_address(subnet):
-    definition = read_config().model_dump()
+def test_network_requires_a_private_subnet_with_a_network_address(
+    subnet, kubernetes_inventory
+):
+    definition = read_config(kubernetes_inventory).model_dump()
     definition["networks"]["lab"]["subnet"] = subnet
 
     with pytest.raises(ValidationError):
@@ -242,8 +252,8 @@ def test_network_requires_a_private_subnet_with_a_network_address(subnet):
 
 
 @pytest.mark.parametrize("port", ["52222:22", "16443:8080"])
-def test_all_published_ports_must_be_unique_on_the_mac(port):
-    definition = read_config().model_dump()
+def test_all_published_ports_must_be_unique_on_the_mac(port, kubernetes_inventory):
+    definition = read_config(kubernetes_inventory).model_dump()
     definition["machines"]["w1"]["ports"] = (
         ["53232:22", port] if port.endswith(":8080") else [port]
     )
@@ -264,8 +274,8 @@ def test_all_published_ports_must_be_unique_on_the_mac(port):
         "$(id):80",
     ],
 )
-def test_invalid_or_unsupported_port_mappings_are_rejected(port):
-    definition = read_config().model_dump()
+def test_invalid_or_unsupported_port_mappings_are_rejected(port, kubernetes_inventory):
+    definition = read_config(kubernetes_inventory).model_dump()
     definition["machines"]["w1"]["ports"] = ["52232:22", port]
 
     with pytest.raises(ValidationError):
@@ -273,16 +283,16 @@ def test_invalid_or_unsupported_port_mappings_are_rejected(port):
 
 
 @pytest.mark.parametrize("ports", [["18080:80"], ["52232:22", "53232:22"]])
-def test_each_machine_needs_one_unambiguous_ssh_mapping(ports):
-    definition = read_config().model_dump()
+def test_each_machine_needs_one_unambiguous_ssh_mapping(ports, kubernetes_inventory):
+    definition = read_config(kubernetes_inventory).model_dump()
     definition["machines"]["w1"]["ports"] = ports
 
     with pytest.raises(ValidationError, match="SSH|Guest ports"):
         Config.model_validate(definition)
 
 
-def test_control_plane_requires_a_published_api_port():
-    definition = read_config().model_dump()
+def test_control_plane_requires_a_published_api_port(kubernetes_inventory):
+    definition = read_config(kubernetes_inventory).model_dump()
     definition["machines"]["cp"]["ports"] = ["52222:22"]
 
     with pytest.raises(ValidationError, match="control plane requires"):
@@ -290,8 +300,8 @@ def test_control_plane_requires_a_published_api_port():
 
 
 @pytest.mark.parametrize("name", ["missing", "nat"])
-def test_every_machine_must_reference_both_defined_networks(name):
-    definition = read_config().model_dump()
+def test_every_machine_must_reference_both_defined_networks(name, kubernetes_inventory):
+    definition = read_config(kubernetes_inventory).model_dump()
     definition["machines"]["cp"]["networks"] = {name: {}}
 
     with pytest.raises(ValidationError, match="reference"):
@@ -299,24 +309,24 @@ def test_every_machine_must_reference_both_defined_networks(name):
 
 
 @pytest.mark.parametrize("driver", ["bridge", "nat"])
-def test_unsupported_network_topologies_are_rejected(driver):
-    definition = read_config().model_dump()
+def test_unsupported_network_topologies_are_rejected(driver, kubernetes_inventory):
+    definition = read_config(kubernetes_inventory).model_dump()
     definition["networks"]["lab"]["driver"] = driver
 
     with pytest.raises(ValidationError):
         Config.model_validate(definition)
 
 
-def test_nat_addresses_are_managed_by_qemu():
-    definition = read_config().model_dump()
+def test_nat_addresses_are_managed_by_qemu(kubernetes_inventory):
+    definition = read_config(kubernetes_inventory).model_dump()
     definition["machines"]["cp"]["networks"]["nat"]["ipv4_address"] = "10.0.2.15"
 
     with pytest.raises(ValidationError, match="DHCP"):
         Config.model_validate(definition)
 
 
-def test_arbitrary_published_ports_are_checked_before_qemu_starts():
-    definition = read_config().model_dump()
+def test_arbitrary_published_ports_are_checked_before_qemu_starts(kubernetes_inventory):
+    definition = read_config(kubernetes_inventory).model_dump()
     with qemu.socket.socket() as listener:
         listener.bind(("127.0.0.1", 0))
         published = listener.getsockname()[1]
@@ -333,7 +343,7 @@ def test_arbitrary_published_ports_are_checked_before_qemu_starts():
             qemu.check_ports(nodes(config)[0])
 
 
-def test_recently_closed_connections_do_not_block_a_guest_restart():
+def test_recently_closed_connections_do_not_block_a_guest_restart(kubernetes_inventory):
     # QEMU enables address reuse. The preflight must allow the same TIME_WAIT sockets.
     with qemu.socket.socket() as listener:
         listener.setsockopt(qemu.socket.SOL_SOCKET, qemu.socket.SO_REUSEADDR, 1)
@@ -346,19 +356,19 @@ def test_recently_closed_connections_do_not_block_a_guest_restart():
             connection, _ = listener.accept()
             connection.close()
             assert client.recv(1) == b""
-    definition = nodes(read_config())[0].model_dump()
+    definition = nodes(read_config(kubernetes_inventory))[0].model_dump()
     definition["ports"] = [f"{address[1]}:22"]
 
     qemu.check_ports(Node.model_validate(definition))
 
 
-def test_address_reuse_still_rejects_a_live_listener():
+def test_address_reuse_still_rejects_a_live_listener(kubernetes_inventory):
     with qemu.socket.socket() as listener:
         listener.setsockopt(qemu.socket.SOL_SOCKET, qemu.socket.SO_REUSEADDR, 1)
         listener.bind(("127.0.0.1", 0))
         listener.listen(1)
         port = listener.getsockname()[1]
-        definition = nodes(read_config())[0].model_dump()
+        definition = nodes(read_config(kubernetes_inventory))[0].model_dump()
         definition["ports"] = [f"{port}:22"]
 
         with pytest.raises(ValueError, match=f"Host port {port} is already in use"):

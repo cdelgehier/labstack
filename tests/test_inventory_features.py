@@ -10,9 +10,9 @@ from labstack.settings import get_settings
 
 
 @pytest.fixture
-def named_inventory():
+def named_inventory(kubernetes_inventory):
     """Describe the same guests using the public keyed inventory format."""
-    definition = yaml.safe_load((get_settings().root / "machines.yml").read_text())
+    definition = yaml.safe_load(kubernetes_inventory.read_text())
     definition["machines"]["w2"]["profiles"] = ["extra-worker"]
     return definition
 

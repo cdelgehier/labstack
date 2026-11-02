@@ -22,9 +22,9 @@ class LocalHealthCommandFake:
 
 
 @pytest.fixture
-def health_state(tmp_path, monkeypatch):
+def health_state(tmp_path, monkeypatch, kubernetes_inventory):
     """Use real command execution with test-owned logs and a live monitor stub."""
-    definition = read_config().model_dump()
+    definition = read_config(kubernetes_inventory).model_dump()
     for machine in definition["machines"].values():
         machine["depends_on"] = {}
     definition["machines"]["cp"]["healthcheck"] = {"test": ["CMD", "true"]}

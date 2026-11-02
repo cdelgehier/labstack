@@ -18,9 +18,9 @@ from labstack.settings import get_settings
 
 
 @pytest.fixture
-def environment_inventory(tmp_path):
+def environment_inventory(tmp_path, kubernetes_inventory):
     """Use a complete inventory with files beside it, independent of the working directory."""
-    definition = read_config().model_dump(mode="json")
+    definition = read_config(kubernetes_inventory).model_dump(mode="json")
     definition["machines"]["cp"]["env_file"] = ["common.env", "machine.env"]
     definition["machines"]["cp"]["environment"] = {"LOG_LEVEL": "debug"}
     (tmp_path / "common.env").write_text(
@@ -98,8 +98,10 @@ def test_inactive_profiles_do_not_require_their_environment_files(
         ("env_file", [""]),
     ],
 )
-def test_invalid_machine_environment_is_rejected_without_values(field, value):
-    definition = read_config().model_dump()
+def test_invalid_machine_environment_is_rejected_without_values(
+    field, value, kubernetes_inventory
+):
+    definition = read_config(kubernetes_inventory).model_dump()
     definition["machines"]["cp"][field] = value
 
     with pytest.raises(ValidationError, match=field) as caught:
@@ -266,8 +268,10 @@ def test_saved_environments_survive_changed_and_removed_files(
     assert (state_dir / "state.json").stat().st_mode & 0o777 == 0o600
 
 
-def test_saved_environments_must_cover_exactly_the_active_machines(tmp_path):
-    config = read_config()
+def test_saved_environments_must_cover_exactly_the_active_machines(
+    tmp_path, kubernetes_inventory
+):
+    config = read_config(kubernetes_inventory)
 
     with pytest.raises(ValidationError, match="Saved environments"):
         State(

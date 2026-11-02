@@ -76,11 +76,11 @@ class LocalRsyncFake:
     reason="Image and transfer tools are missing",
 )
 def test_shared_named_machine_keeps_its_disk_outside_recipe_transfers(
-    tmp_path, monkeypatch
+    tmp_path, monkeypatch, kubernetes_inventory
 ):
     from labstack.cloud_init import prepare_node
 
-    definition = read_config().model_dump()
+    definition = read_config(kubernetes_inventory).model_dump()
     for machine in definition["machines"].values():
         machine.update(scripts=[], healthcheck=None, depends_on={})
     definition["machines"]["shared"] = definition["machines"].pop("cp")
@@ -118,9 +118,9 @@ def test_shared_named_machine_keeps_its_disk_outside_recipe_transfers(
 
 
 @pytest.fixture
-def script_inventory(tmp_path, monkeypatch):
+def script_inventory(tmp_path, monkeypatch, kubernetes_inventory):
     """Use real script files with the existing image and network settings."""
-    definition = read_config().model_dump()
+    definition = read_config(kubernetes_inventory).model_dump()
     for machine in definition["machines"].values():
         machine["scripts"] = []
         machine["healthcheck"] = None
@@ -320,9 +320,9 @@ def test_root_scripts_receive_saved_environment_without_values_in_ssh_arguments(
 
 
 def test_worker_context_uses_the_control_plane_even_when_the_worker_is_first(
-    tmp_path, monkeypatch
+    tmp_path, monkeypatch, kubernetes_inventory
 ):
-    definition = read_config().model_dump()
+    definition = read_config(kubernetes_inventory).model_dump()
     machines = definition["machines"]
     definition["machines"] = {name: machines[name] for name in ("w1", "cp", "w2")}
     filename = "provision/example/context.sh"
@@ -394,7 +394,9 @@ def test_worker_script_passes_join_arguments_without_shell_evaluation(tmp_path):
 
 
 @pytest.mark.skipif(not shutil.which("rsync"), reason="rsync is not installed")
-def test_shared_files_keep_private_modes_with_the_system_rsync(tmp_path, monkeypatch):
+def test_shared_files_keep_private_modes_with_the_system_rsync(
+    tmp_path, monkeypatch, kubernetes_inventory
+):
     state = tmp_path / "state"
     shared = state / "shared"
     shared.mkdir(parents=True)
@@ -402,7 +404,7 @@ def test_shared_files_keep_private_modes_with_the_system_rsync(tmp_path, monkeyp
     (shared / "token").chmod(0o644)
     guest = tmp_path / "guest"
     guest.mkdir()
-    node = nodes(read_config())[0]
+    node = nodes(read_config(kubernetes_inventory))[0]
     rsync_fake = LocalRsyncFake(guest)
     monkeypatch.setattr(get_settings(), "state_dir", state)
     monkeypatch.setattr(get_settings(), "logs_dir", tmp_path)
@@ -557,8 +559,8 @@ def test_skipping_scripts_does_not_erase_previous_provisioning(
     assert cluster.read_state().provisioned is True
 
 
-def test_kubernetes_helpers_need_completed_provisioning(tmp_path):
-    config = read_config()
+def test_kubernetes_helpers_need_completed_provisioning(tmp_path, kubernetes_inventory):
+    config = read_config(kubernetes_inventory)
     state = State(
         config=config,
         instance_id="test",

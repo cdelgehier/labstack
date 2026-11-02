@@ -13,10 +13,12 @@ from tests.runtime import POLICY_CHECK, save_diagnostic, ssh_key_identity
 
 
 @pytest.mark.parametrize("account", ["debian", "vagrant"])
-def test_guest_runtime_checks_receive_the_saved_account(tmp_path, monkeypatch, account):
+def test_guest_runtime_checks_receive_the_saved_account(
+    tmp_path, monkeypatch, account, kubernetes_inventory
+):
     from tests import runtime
 
-    definition = inventory.read_config().model_dump()
+    definition = inventory.read_config(kubernetes_inventory).model_dump()
     definition["machines"]["cp"]["ssh_user"] = account
     state = State(
         config=Config.model_validate(definition),
@@ -45,12 +47,14 @@ def test_host_key_comparison_ignores_the_hostname_comment():
     assert ssh_key_identity(first) == ssh_key_identity(second)
 
 
-def test_missing_ssh_configuration_keeps_an_error_log(tmp_path, monkeypatch):
+def test_missing_ssh_configuration_keeps_an_error_log(
+    tmp_path, monkeypatch, kubernetes_inventory
+):
     monkeypatch.setattr(get_settings(), "state_dir", tmp_path / "missing-state")
     output = tmp_path / "diagnostics.log"
 
     success = save_diagnostic(
-        inventory.nodes(inventory.read_config())[0], "true", output
+        inventory.nodes(inventory.read_config(kubernetes_inventory))[0], "true", output
     )
 
     assert success is False

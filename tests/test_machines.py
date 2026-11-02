@@ -64,8 +64,8 @@ networks:
     assert select_node(config, "compute-a") == worker
 
 
-def test_roles_cannot_silently_select_provisioning():
-    definition = read_config().model_dump()
+def test_roles_cannot_silently_select_provisioning(kubernetes_inventory):
+    definition = read_config(kubernetes_inventory).model_dump()
     definition["machines"]["cp"]["role"] = "control-plane"
 
     with pytest.raises(ValidationError, match="Extra inputs"):
@@ -81,28 +81,32 @@ def test_roles_cannot_silently_select_provisioning():
         "https://user:password@example.com/",
     ],
 )
-def test_catalogue_requires_an_https_base_url(url):
-    definition = read_config().model_dump()
+def test_catalogue_requires_an_https_base_url(url, kubernetes_inventory):
+    definition = read_config(kubernetes_inventory).model_dump()
     definition["boxes_catalogue"] = url
 
     with pytest.raises(ValidationError, match="boxes_catalogue"):
         Config.model_validate(definition)
 
 
-def test_reading_the_inventory_does_not_read_remote_metadata(monkeypatch):
+def test_reading_the_inventory_does_not_read_remote_metadata(
+    monkeypatch, kubernetes_inventory
+):
     from unittest.mock import Mock
 
     resolver_mock = Mock(side_effect=OSError("Catalogue is offline"))
     monkeypatch.setattr(images, "resolve_box", resolver_mock)
 
-    config = read_config()
+    config = read_config(kubernetes_inventory)
 
     assert config.machines["cp"].box.target == "ubuntu-26.04-arm64"
     resolver_mock.assert_not_called()
 
 
-def test_connection_selects_a_machine_key_even_when_it_was_a_positional_alias():
-    definition = read_config().model_dump()
+def test_connection_selects_a_machine_key_even_when_it_was_a_positional_alias(
+    kubernetes_inventory,
+):
+    definition = read_config(kubernetes_inventory).model_dump()
     definition["machines"] = {
         "worker-1": definition["machines"]["cp"],
         **{
@@ -119,13 +123,17 @@ def test_connection_selects_a_machine_key_even_when_it_was_a_positional_alias():
 
 
 @pytest.mark.parametrize("name", ["w2", "missing", "control-plane"])
-def test_connection_rejects_unavailable_names_and_lists_active_machines(name):
+def test_connection_rejects_unavailable_names_and_lists_active_machines(
+    name, kubernetes_inventory
+):
     with pytest.raises(ValueError, match="Available machines: cp, w1"):
-        select_node(read_config(), name)
+        select_node(read_config(kubernetes_inventory), name)
 
 
-def test_image_changes_cannot_reuse_existing_machine_disks(tmp_path, monkeypatch):
-    existing = read_config()
+def test_image_changes_cannot_reuse_existing_machine_disks(
+    tmp_path, monkeypatch, kubernetes_inventory
+):
+    existing = read_config(kubernetes_inventory)
     definition = existing.model_dump(mode="json")
     definition["machines"]["cp"]["box"]["version"] = "0.5.0"
     (tmp_path / "machines.yml").write_text(yaml.safe_dump(definition))
@@ -174,8 +182,10 @@ def test_different_disks_from_the_same_release_have_separate_cache_entries(
     not shutil.which("qemu-img") or not shutil.which("xorriso"),
     reason="QEMU tools are missing",
 )
-def test_each_overlay_uses_its_assigned_base_and_disk_capacity(tmp_path, monkeypatch):
-    definition = read_config().model_dump()
+def test_each_overlay_uses_its_assigned_base_and_disk_capacity(
+    tmp_path, monkeypatch, kubernetes_inventory
+):
+    definition = read_config(kubernetes_inventory).model_dump()
     definition["machines"]["cp"]["disk_gib"] = 16
     definition["machines"]["w1"]["disk_gib"] = 20
     config = Config.model_validate(definition)
@@ -217,8 +227,10 @@ def test_each_overlay_uses_its_assigned_base_and_disk_capacity(tmp_path, monkeyp
     not shutil.which("qemu-img") or not shutil.which("xorriso"),
     reason="QEMU tools are missing",
 )
-def test_machine_disk_cannot_truncate_its_base_image(tmp_path, monkeypatch):
-    definition = read_config().model_dump()
+def test_machine_disk_cannot_truncate_its_base_image(
+    tmp_path, monkeypatch, kubernetes_inventory
+):
+    definition = read_config(kubernetes_inventory).model_dump()
     definition["machines"]["cp"]["disk_gib"] = 16
     config = Config.model_validate(definition)
     directory = tmp_path / "state"
