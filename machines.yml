@@ -1,86 +1,44 @@
+# VM for the HolmesGPT demo.
 boxes_catalogue: https://cdelgehier.github.io/image-factory/
 
-### DEFAULTS
-x-ubuntu: &ubuntu
-  box: ubuntu-26.04-arm64
-  ssh_user: ubuntu # Use the account prepared by this box.
-  cpus: 1
-  memory_mib: 1536
-  disk_gib: 20
-
-x-kubernetes-worker: &kubernetes_worker
-  <<: *ubuntu
-  scripts:
-    - provision/base/packages.sh
-    - provision/kubernetes/prepare.sh
-    - provision/kubernetes/worker.sh
-  depends_on:
-    cp:
-      condition: healthy # Wait for cp's API healthcheck to pass.
-      before: provision/kubernetes/worker.sh # Wait for cp's API before joining the cluster.
-  healthcheck:
-    test: [CMD, sudo, systemctl, is-active, kubelet]
-    interval: 5s
-    timeout: 10s
-    retries: 12
-
-### VMs
 machines:
-  cp:
+  holmes:
     box: ubuntu-26.04-arm64
     ssh_user: ubuntu
-    cpus: 2
-    memory_mib: 2048
+    cpus: 4
+    memory_mib: 6144
     disk_gib: 20
     networks:
       nat: {}
       lab:
-        ipv4_address: 192.168.76.10
+        ipv4_address: 192.168.76.20
     ports:
-      - "52222:22"
-      - "16443:6443"
+      - "53222:22" # SSH
+      - "13000:3000" # Grafana dashboards
+      - "19090:9090" # Prometheus metrics and alerts
+      - "19093:9093" # Alertmanager
+      - "18080:8080" # Demo HTTP service
+      - "18081:8081" # ntfy alert notifications
     scripts:
-      - provision/base/packages.sh
-      - provision/kubernetes/prepare.sh
-      - provision/kubernetes/control-plane.sh
-      - provision/kubernetes/cilium.sh
-      - provision/kubernetes/addons.sh
+      - provision/base/packages.sh # Common tools: curl, jq, DNS, GPG, rsync and Vim
+      - provision/observability/packages.sh # Apache, Docker/Compose, node exporter and ext4 tools
+      - provision/observability/httpd.sh # Demo HTTP page and its systemd service
+      - provision/observability/storage.sh # Demo ext4 data volume and expected mount
+      - provision/observability/monitoring.sh # Prometheus, probes, Alertmanager, Grafana and ntfy
     healthcheck:
-      # API readiness can release worker joins before Cilium makes nodes Ready.
-      test: [CMD, sudo, kubectl, --kubeconfig=/etc/kubernetes/admin.conf, get, --raw=/readyz]
-      after: provision/kubernetes/control-plane.sh
+      test:
+        - CMD
+        - bash
+        - -ec
+        - >-
+          systemctl is-active --quiet demo-httpd &&
+          systemctl is-active --quiet labstack-observability &&
+          systemctl is-active --quiet prometheus-node-exporter &&
+          mountpoint -q /srv/demo
       interval: 5s
       timeout: 10s
-      retries: 24
-    depends_on:
-      w1:
-        condition: completed # w1 must finish all scripts and its kubelet healthcheck.
-        before: provision/kubernetes/cilium.sh # Install Cilium on cp after w1 has joined.
-      w2:
-        condition: completed # An active w2 must also finish its scripts and healthcheck.
-        before: provision/kubernetes/cilium.sh # Wait for the second worker before installing Cilium.
-        required: false # Skip this dependency when the extra-worker profile is inactive.
+      retries: 12
 
-  w1:
-    <<: *kubernetes_worker
-    networks:
-      nat: {}
-      lab:
-        ipv4_address: 192.168.76.11
-    ports:
-      - "52232:22"
-
-  w2:
-    <<: *kubernetes_worker
-    profiles: [extra-worker]
-    networks:
-      nat: {}
-      lab:
-        ipv4_address: 192.168.76.12
-    ports:
-      - "52242:22"
-
-### NETWORKS
 networks:
   nat:
     driver: nat

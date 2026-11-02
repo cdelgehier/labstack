@@ -19,8 +19,9 @@ Crossplane and local tests. These labs often require installing system packages,
 changing systemd services and units, or adjusting kernel settings with sysctl.
 The VMs provide a full Linux system with sudo access for these exercises.
 
-The included recipe installs Kubernetes **1.37.1** with Cilium on one control plane
-and one worker. A second worker is optional.
+The active recipe runs an [HTTP monitoring demo](provision/observability/README.md).
+The saved Kubernetes recipe installs Kubernetes **1.37.1** with Cilium on one
+control plane and one worker. A second worker is optional.
 
 ## Quick Start
 
@@ -32,15 +33,25 @@ cd labstack
 brew install go-task
 task prerequisites
 task up
-task connect -- cp
+task connect -- holmes
 ```
 
 `task prerequisites` installs the required tools, Python 3.15 and the locked
-project dependencies. `task connect -- cp` opens an SSH shell with the machine's
+project dependencies. `task connect -- holmes` opens an SSH shell with the machine's
 `ssh_user`, which is `ubuntu` in the included inventory.
-Run your Kubernetes commands from that shell.
 Use the machine key from `machines.yml` after `--`, for example
-`task connect -- w1`. Use `task status` to list the active machines.
+`task connect -- holmes`. Use `task status` to list the active machines.
+
+## Kubernetes lab
+
+To switch to the saved Kubernetes recipe, remove the existing lab first:
+
+```sh
+task destroy
+cp machines.yml.cks machines.yml
+task up
+task connect -- cp
+```
 
 To use your Mac's kubectl, export the cluster configuration:
 
@@ -82,7 +93,7 @@ task test:runtime
 
 Edit [machines.yml](machines.yml) to choose resources, images, networks,
 published ports and scripts. The machine key supplies its hostname, SSH name and
-disk directory. This example shows the control plane resources and script list:
+disk directory. This example shows a Kubernetes control plane and its script list:
 
 ```yaml
 machines:
@@ -116,7 +127,7 @@ workload under `provision/` and replace that list.
 Use per-machine `environment` and `env_file` for guest variables in scripts,
 healthchecks and login shells. Services can read `/etc/labstack/environment`.
 See [guest environment variables](docs/environment.md) for the YAML and systemd examples.
-The default lab starts `cp` and `w1`. For a new lab with a second worker, run:
+The Kubernetes recipe starts `cp` and `w1`. For a new Kubernetes lab with a second worker, run:
 
 ```sh
 task up PROFILES=extra-worker
@@ -125,7 +136,7 @@ task up PROFILES=extra-worker
 Machines without a profile always start. Root `x-*` blocks share default values
 through YAML anchors. Each machine can override them by setting its own fields.
 `healthcheck` checks guest services, and `depends_on` gates scripts
-on those results. The included recipe waits for the API before worker joins and
+on those results. The Kubernetes recipe waits for the API before worker joins and
 for worker setup before Cilium. See [configuration](docs/configuration.md) for the
 complete examples and dependency conditions.
 
