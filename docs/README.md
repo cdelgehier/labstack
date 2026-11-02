@@ -5,12 +5,16 @@ Run all commands from the project directory.
 
 | Guide | What you will find |
 | --- | --- |
+| [Inventory backups](recipes.md) | Restore a saved inventory and use the usual tasks |
 | [Configuration](configuration.md) | Machines, image versions, networks, ports and provisioning scripts |
 | [Guest environment](environment.md) | Per-machine variables, dotenv files and systemd services |
 | [Inventory without YAML anchors](explicit-inventory.md) | A complete example with every VM written out and lists expanded |
 | [Usage](usage.md) | Manual installation, guest access, lifecycle commands and disk locations |
 | [Development](development.md) | Python package layout, settings, logging and checks |
 
-The included recipe creates a Kubernetes 1.37.1 cluster on Ubuntu 26.04 ARM64.
+The default recipe creates a Kubernetes 1.37.1 cluster on Ubuntu 26.04 ARM64.
 For Argo CD, Crossplane or another workload, add your own scripts or install the
 tools inside the running lab.
+
+The `machines.yml.holmes` backup currently prepares an Ubuntu VM with common
+packages. Observability and HolmesGPT provisioning will follow.

@@ -149,8 +149,7 @@ flowchart TD
     Health --> Access
 ```
 
-The default lab uses 3.5 GiB of guest memory and 20 GiB of virtual disk capacity
-per node. Only written disk data takes space on the Mac. Published ports bind
+Only written disk data takes space on the Mac. Published ports bind
 to `127.0.0.1`; private guest traffic uses a QEMU socket network.
 
 `task down` stops the VMs and keeps their disks.
@@ -161,3 +160,9 @@ Application progress goes to stderr; captured output uses JSON logs.
 
 Package layout, settings, logging and contributor checks:
 [docs/development.md](docs/development.md).
+
+## Inventory backups
+
+[machines.yml.cks](machines.yml.cks) and [machines.yml.holmes](machines.yml.holmes)
+are saved inventories. Copy the chosen file over `machines.yml`, then use the
+usual tasks. See the [inventory guide](docs/recipes.md).
