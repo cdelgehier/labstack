@@ -21,6 +21,9 @@ other lifecycle commands use saved state.
 
 ## Practice the installation
 
+The Kubernetes examples below use `machines.yml.cks` copied over `machines.yml`.
+Run `task destroy` before switching an existing lab.
+
 Start clean Ubuntu nodes without installing Kubernetes or containerd:
 
 ```sh

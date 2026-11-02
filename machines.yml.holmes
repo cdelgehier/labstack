@@ -1,4 +1,4 @@
-# Base VM for the HolmesGPT demo.
+# VM for the HolmesGPT demo.
 boxes_catalogue: https://cdelgehier.github.io/image-factory/
 
 machines:
@@ -13,9 +13,31 @@ machines:
       lab:
         ipv4_address: 192.168.76.20
     ports:
-      - "53222:22"
+      - "53222:22" # SSH
+      - "13000:3000" # Grafana dashboards
+      - "19090:9090" # Prometheus metrics and alerts
+      - "19093:9093" # Alertmanager
+      - "18080:8080" # Demo HTTP service
+      - "18081:8081" # ntfy alert notifications
     scripts:
-      - provision/base/packages.sh
+      - provision/base/packages.sh # Common tools: curl, jq, DNS, GPG, rsync and Vim
+      - provision/observability/packages.sh # Apache, Docker/Compose, node exporter and ext4 tools
+      - provision/observability/httpd.sh # Demo HTTP page and its systemd service
+      - provision/observability/storage.sh # Demo ext4 data volume and expected mount
+      - provision/observability/monitoring.sh # Prometheus, probes, Alertmanager, Grafana and ntfy
+    healthcheck:
+      test:
+        - CMD
+        - bash
+        - -ec
+        - >-
+          systemctl is-active --quiet demo-httpd &&
+          systemctl is-active --quiet labstack-observability &&
+          systemctl is-active --quiet prometheus-node-exporter &&
+          mountpoint -q /srv/demo
+      interval: 5s
+      timeout: 10s
+      retries: 12
 
 networks:
   nat:

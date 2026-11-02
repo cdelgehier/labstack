@@ -15,8 +15,10 @@ SOPs and tools. The model will run in LM Studio on the presenter's LAN PC.
 - A small set of repair operations with fixed demo targets.
 - Recovery verification, an action journal and notifications when a repair is
   unavailable or fails.
+- Investigation results and repair status in a separate ntfy `holmes` topic;
+  Alertmanager continues sending alerts and resolutions to `alerts`.
 
 Provisioning scripts and repair tools are not implemented yet.
-Future scripts must be added explicitly to `machines.yml.holmes`.
+Future scripts must be added explicitly to the active `machines.yml`.
 
 See the [inventory guide](../../docs/recipes.md) to select the lab.

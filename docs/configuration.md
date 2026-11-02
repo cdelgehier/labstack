@@ -443,13 +443,12 @@ With the Kubernetes recipe selected, it must also stay separate from the pod and
 No network service or administrator access is needed on the Mac.
 The private network is available while the first machine's QEMU process is running.
 SSH ports and the API port listen on localhost only.
-Guests use 3.5 GiB of memory in the default environment, or 5 GiB with two workers.
-Allow some extra memory for QEMU and macOS.
+Set guest resources in the active `machines.yml`. Allow extra memory for QEMU and macOS.
 Disks grow as data is written; the default capacity is 20 GiB per node.
 You can set `disk_gib: 16` for small exercises. Use a larger disk for many container images or volumes.
 The disk must also fit its base image. The Ubuntu v0.4.0 image has a virtual capacity of 12 GiB.
 
-The default Kubernetes scripts install containerd, kubeadm, kubelet and kubectl, then add:
+The Kubernetes recipe scripts install containerd, kubeadm, kubelet and kubectl, then add:
 
 - Cilium `1.20.2`, with VXLAN tunnels and pod network `10.244.0.0/16`.
 - Metrics Server `v0.9.0`, with insecure kubelet TLS for guest self-signed certificates.

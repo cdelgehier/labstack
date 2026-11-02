@@ -1,0 +1,78 @@
+rule_files: [/etc/prometheus/alerts.yml]
+evaluation_interval: 5s
+tests:
+  - name: Short resource pressure does not fire an alert
+    interval: 5s
+    input_series:
+      - series: 'node_cpu_seconds_total{job="node-exporter",instance="demo",cpu="0",mode="idle"}'
+        values: '0+0x1 5+5x40'
+      - series: 'node_memory_MemAvailable_bytes{job="node-exporter",instance="demo"}'
+        values: '50x1 500x40'
+      - series: 'node_memory_MemTotal_bytes{job="node-exporter",instance="demo"}'
+        values: '1000x44'
+      - series: 'node_filesystem_avail_bytes{job="node-exporter",instance="demo",mountpoint="/srv/demo",fstype="ext4",device="/dev/loop0"}'
+        values: '50x1 500x40'
+      - series: 'node_filesystem_size_bytes{job="node-exporter",instance="demo",mountpoint="/srv/demo",fstype="ext4",device="/dev/loop0"}'
+        values: '1000x44'
+    promql_expr_test:
+      - expr: 'count(ALERTS{alertname=~"DemoCpuBusy|DemoMemoryLow|DemoDiskSpaceLow",alertstate="firing"}) or vector(0)'
+        eval_time: 5s
+        exp_samples: [{labels: '{}', value: 0}]
+      - expr: 'count(ALERTS{alertname=~"DemoCpuBusy|DemoMemoryLow|DemoDiskSpaceLow",alertstate="firing"}) or vector(0)'
+        eval_time: 2m30s
+        exp_samples: [{labels: '{}', value: 0}]
+  - name: Sustained resource pressure fires then clears on recovery
+    interval: 5s
+    input_series:
+      - series: 'node_cpu_seconds_total{job="node-exporter",instance="demo",cpu="0",mode="idle"}'
+        values: '0+0x30 5+5x40'
+      - series: 'node_memory_MemAvailable_bytes{job="node-exporter",instance="demo"}'
+        values: '50x30 500x40'
+      - series: 'node_memory_MemTotal_bytes{job="node-exporter",instance="demo"}'
+        values: '1000x71'
+      - series: 'node_filesystem_avail_bytes{job="node-exporter",instance="demo",mountpoint="/srv/demo",fstype="ext4",device="/dev/loop0"}'
+        values: '50x30 500x40'
+      - series: 'node_filesystem_size_bytes{job="node-exporter",instance="demo",mountpoint="/srv/demo",fstype="ext4",device="/dev/loop0"}'
+        values: '1000x71'
+    promql_expr_test:
+      - expr: 'count(ALERTS{alertname=~"DemoCpuBusy|DemoMemoryLow|DemoDiskSpaceLow",alertstate="firing"}) or vector(0)'
+        eval_time: 15s
+        exp_samples: [{labels: '{}', value: 3}]
+      - expr: 'count(ALERTS{alertname=~"DemoCpuBusy|DemoMemoryLow|DemoDiskSpaceLow",alertstate="firing"}) or vector(0)'
+        eval_time: 2m30s
+        exp_samples: [{labels: '{}', value: 3}]
+      - expr: 'count(ALERTS{alertname=~"DemoCpuBusy|DemoMemoryLow|DemoDiskSpaceLow",alertstate="firing"}) or vector(0)'
+        eval_time: 4m
+        exp_samples: [{labels: '{}', value: 0}]
+  - name: An expected mount disappearing fires and remounting clears it
+    interval: 5s
+    input_series:
+      - series: 'labstack_expected_mount{job="node-exporter",instance="demo",mountpoint="/srv/demo"}'
+        values: '1x20'
+      - series: 'node_filesystem_size_bytes{job="node-exporter",instance="demo",mountpoint="/srv/demo",fstype="ext4",device="/dev/loop0"}'
+        values: '1000 stale _x6 1000x12'
+    promql_expr_test:
+      - expr: 'count(ALERTS{alertname="DemoExpectedMountMissing",alertstate="firing"}) or vector(0)'
+        eval_time: 0s
+        exp_samples: [{labels: '{}', value: 0}]
+      - expr: 'count(ALERTS{alertname="DemoExpectedMountMissing",alertstate="firing"}) or vector(0)'
+        eval_time: 10s
+        exp_samples: [{labels: '{}', value: 0}]
+      - expr: 'count(ALERTS{alertname="DemoExpectedMountMissing",alertstate="firing"}) or vector(0)'
+        eval_time: 20s
+        exp_samples: [{labels: '{}', value: 1}]
+      - expr: 'count(ALERTS{alertname="DemoExpectedMountMissing",alertstate="firing"}) or vector(0)'
+        eval_time: 45s
+        exp_samples: [{labels: '{}', value: 0}]
+  - name: A stopped exporter is a monitoring failure
+    interval: 5s
+    input_series:
+      - series: 'up{job="node-exporter",instance="demo"}'
+        values: '0x10'
+    promql_expr_test:
+      - expr: 'count(ALERTS{alertname="DemoMonitoringTargetDown",alertstate="firing"}) or vector(0)'
+        eval_time: 35s
+        exp_samples: [{labels: '{}', value: 1}]
+      - expr: 'count(ALERTS{alertname="DemoExpectedMountMissing",alertstate="firing"}) or vector(0)'
+        eval_time: 35s
+        exp_samples: [{labels: '{}', value: 0}]

@@ -28,7 +28,7 @@ tasks:
       - uv sync --locked
 
   up:
-    desc: Start the default machines and run their scripts (PROFILES=extra-worker adds w2)
+    desc: Start the machines in machines.yml and run their scripts
     cmds: [uv run --locked labstack up]
 
   up:no-provision:
@@ -84,8 +84,8 @@ tasks:
   lint:shell:
     desc: Check shell scripts with ShellCheck and Bash
     cmds:
-      - find provision -type f -name '*.sh' -print0 | xargs -0 shellcheck
-      - find provision -type f -name '*.sh' -print0 | xargs -0 -n 1 bash -n
+      - find provision tests -type f -name '*.sh' -print0 | xargs -0 shellcheck
+      - find provision tests -type f -name '*.sh' -print0 | xargs -0 -n 1 bash -n
 
   test:
     desc: Run tests without starting any VM
@@ -94,6 +94,21 @@ tasks:
   test:runtime:
     desc: Check guest access, networking and the installed cluster
     cmds: [uv run --locked labstack test]
+
+  test:observability:
+    desc: Test alert rules, HTTP failure, disk space and a missing data volume
+    preconditions:
+      - sh: test -f .state/ssh_config
+        msg: Start the Holmes demo lab first.
+    cmds:
+      - ssh -F .state/ssh_config holmes 'sudo tee /opt/labstack-observability/rule-tests.yml >/dev/null' < tests/observability-rules.yml
+      - >-
+        ssh -F .state/ssh_config holmes
+        'cd /opt/labstack-observability && sudo docker compose run --rm --no-deps -T --interactive=false
+        -v /opt/labstack-observability/rule-tests.yml:/etc/prometheus/tests.yml:ro
+        --entrypoint /bin/promtool prometheus test rules /etc/prometheus/tests.yml'
+      - ssh -F .state/ssh_config -o ConnectTimeout=10 holmes 'sudo bash -se' < tests/observability.sh
+      - ssh -F .state/ssh_config -o ConnectTimeout=10 holmes 'sudo bash -se' < tests/observability-storage.sh
 
   fmt:
     desc: Format Python code

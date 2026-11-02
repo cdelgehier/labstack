@@ -12,9 +12,6 @@ Run all commands from the project directory.
 | [Usage](usage.md) | Manual installation, guest access, lifecycle commands and disk locations |
 | [Development](development.md) | Python package layout, settings, logging and checks |
 
-The default recipe creates a Kubernetes 1.37.1 cluster on Ubuntu 26.04 ARM64.
-For Argo CD, Crossplane or another workload, add your own scripts or install the
-tools inside the running lab.
-
-The `machines.yml.holmes` backup currently prepares an Ubuntu VM with common
-packages. Observability and HolmesGPT provisioning will follow.
+The active recipe provides the [HTTP monitoring demo](../provision/observability/README.md).
+The saved `machines.yml.cks` recipe creates a Kubernetes cluster with Cilium.
+Edit `machines.yml` while working, then save the completed recipe in its backup.
