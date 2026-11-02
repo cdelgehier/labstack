@@ -1,0 +1,25 @@
+# Base VM for the HolmesGPT demo.
+boxes_catalogue: https://cdelgehier.github.io/image-factory/
+
+machines:
+  holmes:
+    box: ubuntu-26.04-arm64
+    ssh_user: ubuntu
+    cpus: 4
+    memory_mib: 6144
+    disk_gib: 20
+    networks:
+      nat: {}
+      lab:
+        ipv4_address: 192.168.76.20
+    ports:
+      - "53222:22"
+    scripts:
+      - provision/base/packages.sh
+
+networks:
+  nat:
+    driver: nat
+  lab:
+    driver: socket
+    subnet: 192.168.76.0/24

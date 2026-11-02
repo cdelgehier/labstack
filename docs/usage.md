@@ -4,27 +4,20 @@ Run commands from the project directory.
 
 ## Choose an inventory
 
-`up` accepts `-f` or `--inventory` to load a different recipe:
+`machines.yml` is the active inventory. Copy a saved inventory over it to switch
+recipes, as shown in the [inventory guide](recipes.md).
+
+For a one-off selection, `up` also accepts `-f` or `--inventory`:
 
 ```sh
-uv run --locked labstack up -f machines.yml.cks
-uv run --locked labstack up --inventory /path/to/machines.yml.holmes --no-provision
+uv run --locked labstack up -f ./custom.yml
 ```
 
-These commands require the named inventory files to exist. Without `-f`, Labstack
-still reads `<root>/machines.yml`. An explicit relative path is resolved from the
-current working directory. Environment files (`env_file`) are resolved beside the
-selected inventory; provisioning scripts still resolve under `<root>/provision/`.
-
-All inventories use the same VM state under `<root>/.state`. This option does not
-select a separate environment. To switch to a different machine configuration,
-run `uv run --locked labstack destroy` before starting the other recipe. Labstack
-refuses to change an existing configuration rather than removing its VMs.
-
-When resuming with `up`, pass the same inventory again. The selected filename is
-not saved as a new default. `down`, `status`, `ssh`, `destroy` and `reset` use saved
-state and do not accept `-f`. Reset recreates the saved topology and image pins
-without needing the original inventory file.
+Explicit relative paths resolve from the current directory. Environment files
+resolve beside the selected inventory; scripts remain relative to the project.
+This option uses the current VM state and is available only with `up`. Destroy
+an existing lab before changing its configuration. Repeat `-f` when resuming;
+other lifecycle commands use saved state.
 
 ## Practice the installation
 
