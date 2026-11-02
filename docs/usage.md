@@ -2,6 +2,30 @@
 
 Run commands from the project directory.
 
+## Choose an inventory
+
+`up` accepts `-f` or `--inventory` to load a different recipe:
+
+```sh
+uv run --locked labstack up -f machines.yml.cks
+uv run --locked labstack up --inventory /path/to/machines.yml.holmes --no-provision
+```
+
+These commands require the named inventory files to exist. Without `-f`, Labstack
+still reads `<root>/machines.yml`. An explicit relative path is resolved from the
+current working directory. Environment files (`env_file`) are resolved beside the
+selected inventory; provisioning scripts still resolve under `<root>/provision/`.
+
+All inventories use the same VM state under `<root>/.state`. This option does not
+select a separate environment. To switch to a different machine configuration,
+run `uv run --locked labstack destroy` before starting the other recipe. Labstack
+refuses to change an existing configuration rather than removing its VMs.
+
+When resuming with `up`, pass the same inventory again. The selected filename is
+not saved as a new default. `down`, `status`, `ssh`, `destroy` and `reset` use saved
+state and do not accept `-f`. Reset recreates the saved topology and image pins
+without needing the original inventory file.
+
 ## Practice the installation
 
 Start clean Ubuntu nodes without installing Kubernetes or containerd:

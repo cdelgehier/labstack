@@ -5,6 +5,7 @@ import fcntl
 import os
 import shlex
 import subprocess
+from pathlib import Path
 
 from labstack.cluster import destroy, down, read_state, reset, up
 from labstack.inventory import nodes, primary_node, select_node
@@ -46,7 +47,15 @@ def main() -> None:
     parser.add_argument("--node", help="Exact machine name from the saved inventory.")
     parser.add_argument("--command")
     parser.add_argument("--no-provision", action="store_true")
+    parser.add_argument(
+        "-f",
+        "--inventory",
+        type=Path,
+        help="Inventory file for up, relative to the current directory (default: <root>/machines.yml).",
+    )
     args = parser.parse_args()
+    if args.inventory is not None and args.action != "up":
+        parser.error("--inventory is only available with up.")
     if args.no_provision and args.action != "up":
         parser.error("--no-provision is only available with up.")
     if args.action in {"ssh", "exec"} and not args.node:
@@ -65,7 +74,12 @@ def main() -> None:
                     "Another lifecycle task is running in this folder."
                 ) from error
         if args.action == "up":
-            up(settings.profiles, settings.image_path, no_provision=args.no_provision)
+            up(
+                settings.profiles,
+                settings.image_path,
+                no_provision=args.no_provision,
+                inventory_path=args.inventory,
+            )
             return
         if args.action in {"client", "kubectl"}:
             client = prepare_client()

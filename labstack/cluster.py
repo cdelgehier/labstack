@@ -144,6 +144,7 @@ def up(
     saved: State | None = None,
     *,
     no_provision: bool = False,
+    inventory_path: Path | None = None,
 ) -> None:
     """Create missing VM resources or resume the saved environment.
 
@@ -152,8 +153,14 @@ def up(
     A reset passes saved state explicitly to preserve image choices while creating new
     writable resources. No-provision startup still prepares access, networking and disk
     growth, but skips all workload scripts. A failed start keeps state for inspection.
+    A selected inventory changes the recipe, not the state or script directories.
     """
     settings = get_settings()
+    inventory = (
+        inventory_path.expanduser().resolve()
+        if inventory_path is not None
+        else settings.root / "machines.yml"
+    )
     if saved is None and settings.reset_file.exists():
         raise ValueError("A reset is incomplete. Run 'task reset' to resume.")
     firmware = requirements()
@@ -161,7 +168,9 @@ def up(
     config = (
         saved.config
         if saved
-        else resolve_config(existing.config if existing else None, profiles)
+        else resolve_config(
+            existing.config if existing else None, profiles, path=inventory
+        )
     )
     # Resolve files before downloads or guest creation. Existing labs keep their snapshot.
     if saved:
@@ -169,7 +178,7 @@ def up(
     elif existing:
         environments = existing.environments
     else:
-        environments = resolve_environments(config)
+        environments = resolve_environments(config, inventory.parent)
     if not no_provision:
         validate_scripts(config)
     prepare_runtime_directory()
