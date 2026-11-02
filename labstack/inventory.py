@@ -110,14 +110,19 @@ def read_config(path: Path | None = None) -> Config:
     return Config.model_validate(load_definition(path))
 
 
-def resolve_config(existing: Config | None, profiles: tuple[str, ...] | None) -> Config:
+def resolve_config(
+    existing: Config | None,
+    profiles: tuple[str, ...] | None,
+    *,
+    path: Path | None = None,
+) -> Config:
     """Apply profile selection and protect the choices stored with existing VMs.
 
     An omitted override keeps the saved profiles rather than the current file
     default. Other inventory changes require destroying the environment first, because
     existing overlays and network identities were created from the saved definition.
     """
-    definition = load_definition()
+    definition = load_definition(path)
     if not isinstance(definition, dict):
         raise ValueError("machines.yml requires a mapping at its root.")
     if profiles is not None:
