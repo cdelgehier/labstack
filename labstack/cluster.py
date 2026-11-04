@@ -163,7 +163,6 @@ def up(
     )
     if saved is None and settings.reset_file.exists():
         raise ValueError("A reset is incomplete. Run 'task reset' to resume.")
-    firmware = requirements()
     existing = read_state() if (settings.state_dir / "state.json").exists() else None
     config = (
         saved.config
@@ -181,6 +180,7 @@ def up(
         environments = resolve_environments(config, inventory.parent)
     if not no_provision:
         validate_scripts(config)
+    firmware = requirements()
     prepare_runtime_directory()
     if existing and image_path:
         raise ValueError(
