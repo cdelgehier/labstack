@@ -10,18 +10,21 @@
 ![uv](https://img.shields.io/badge/uv-DE5FE9.svg?style=for-the-badge&logo=uv&logoColor=white)
 ![Pydantic](https://img.shields.io/badge/Pydantic-E92063.svg?style=for-the-badge&logo=Pydantic&logoColor=white)
 
-Labstack is a personal lab tool for macOS on Apple Silicon.
-It runs Linux ARM64 virtual machines with QEMU and HVF, using a YAML inventory
-and ordered provisioning scripts.
+Labstack creates and manages local Linux ARM64 virtual machines on macOS with
+Apple Silicon. It uses QEMU with HVF acceleration, a YAML inventory and shell
+scripts to provision each guest.
 
-Build labs for CKAD, CKA and CKS practice, or use the same VMs for Argo CD,
-Crossplane and local tests. These labs often require installing system packages,
-changing systemd services and units, or adjusting kernel settings with sysctl.
-The VMs provide a full Linux system with sudo access for these exercises.
+The inventory defines machine resources, images, networks, published ports and
+startup dependencies. Each lab supplies the scripts that install its software.
 
-The active recipe runs an [HTTP monitoring demo](provision/observability/README.md).
-The saved Kubernetes recipe installs Kubernetes **1.37.1** with Cilium on one
-control plane and one worker. A second worker is optional.
+Labstack manages:
+
+- Image downloads, checksum verification and a shared read-only disk cache.
+- Per-machine writable disks, SSH access and cloud-init configuration.
+- Private guest networking and ports published on the Mac's localhost.
+- Ordered provisioning scripts, readiness checks and dependencies between VMs.
+- Starting, stopping, recreating and removing an environment while keeping its
+  saved image versions and configuration.
 
 ## Quick Start
 
@@ -32,72 +35,20 @@ git clone https://github.com/cdelgehier/labstack.git
 cd labstack
 brew install go-task
 task prerequisites
-task up
-task connect -- holmes
 ```
 
-`task prerequisites` installs the required tools, Python 3.15 and the locked
-project dependencies. `task connect -- holmes` opens an SSH shell with the machine's
-`ssh_user`, which is `ubuntu` in the included inventory.
-Use the machine key from `machines.yml` after `--`, for example
-`task connect -- holmes`. Use `task status` to list the active machines.
+`task prerequisites` installs the host tools, Python and the locked project
+dependencies.
 
-## Kubernetes lab
-
-To switch to the saved Kubernetes recipe, remove the existing lab first:
-
-```sh
-task destroy
-cp machines.yml.cks machines.yml
-task up
-task connect -- cp
-```
-
-To use your Mac's kubectl, export the cluster configuration:
-
-```sh
-task kubeconfig
-kubectl --kubeconfig ./kubeconfig get ns
-```
-
-The file uses the API port published on localhost and keeps TLS verification enabled.
-It stays in the project directory; your `~/.kube/config` is unchanged.
-
-To practice installing Kubernetes yourself, start clean Ubuntu nodes:
-
-```sh
-task up:no-provision
-task connect -- cp
-```
-
-This prepares access, networking and disks while skipping the provisioning
-scripts and healthchecks. Use it with a new environment; it does not remove installed software.
-
-Documentation index: [docs/README.md](docs/README.md).
-
-Machine configuration and script recipes: [docs/configuration.md](docs/configuration.md).
-
-Daily commands and manual installation: [docs/usage.md](docs/usage.md).
-
-Useful checks:
-
-```sh
-task ci
-task test:runtime
-```
-
-`task ci` checks code and configuration without starting VMs.
-`task test:runtime` checks the running lab.
-
-## Lab Configuration
-
-Edit [machines.yml](machines.yml) to choose resources, images, networks,
-published ports and scripts. The machine key supplies its hostname, SSH name and
-disk directory. This example shows a Kubernetes control plane and its script list:
+For a first lab, replace the contents of [machines.yml](machines.yml) with this
+single-VM example. If an environment already exists, run `task destroy` before
+changing its inventory; this removes its VM disks and access keys.
 
 ```yaml
+boxes_catalogue: https://cdelgehier.github.io/image-factory/
+
 machines:
-  cp:
+  node:
     box: ubuntu-26.04-arm64
     ssh_user: ubuntu
     cpus: 2
@@ -105,43 +56,74 @@ machines:
     disk_gib: 20
     networks:
       nat: {}
-      lab: {ipv4_address: 192.168.76.10}
-    ports: ["52222:22", "16443:6443"]
+      lab:
+        ipv4_address: 192.168.76.10
+    ports:
+      - "52222:22" # SSH
     scripts:
-      - provision/base/packages.sh
-      - provision/kubernetes/prepare.sh
-      - provision/kubernetes/control-plane.sh
-      - provision/kubernetes/cilium.sh
-      - provision/kubernetes/addons.sh
+      - provision/base/packages.sh # Common guest tools
+
+networks:
+  nat:
+    driver: nat
+  lab:
+    driver: socket
+    subnet: 192.168.76.0/24
 ```
 
-Image names resolve through the [Image Factory catalogue](https://cdelgehier.github.io/image-factory/).
-Labstack selects the latest stable image when creating the lab, checks its
-archive and disk checksums, and saves the version for later starts.
-Use `box: ubuntu-26.04-arm64:0.4.0` to request an exact version.
-Set `ssh_user` to the image's account, such as `ubuntu`, `debian` or `vagrant`.
-Cloud-init gives that account the lab's SSH key and passwordless sudo.
-
-Each machine chooses its own ordered `scripts` list. Add scripts for another
-workload under `provision/` and replace that list.
-Use per-machine `environment` and `env_file` for guest variables in scripts,
-healthchecks and login shells. Services can read `/etc/labstack/environment`.
-See [guest environment variables](docs/environment.md) for the YAML and systemd examples.
-The Kubernetes recipe starts `cp` and `w1`. For a new Kubernetes lab with a second worker, run:
+Start the VM and open a guest shell:
 
 ```sh
-task up PROFILES=extra-worker
+task up
+task status
+task connect -- node
 ```
 
-Machines without a profile always start. Root `x-*` blocks share default values
-through YAML anchors. Each machine can override them by setting its own fields.
-`healthcheck` checks guest services, and `depends_on` gates scripts
-on those results. The Kubernetes recipe waits for the API before worker joins and
-for worker setup before Cilium. See [configuration](docs/configuration.md) for the
-complete examples and dependency conditions.
+The machine key supplies its hostname, SSH name and disk directory. Use the
+name from your inventory after `--`. Guest access uses its configured
+`ssh_user`; cloud-init installs the lab's SSH key and passwordless sudo.
 
-For a complete example with every VM written out, see the
-[inventory without YAML anchors](docs/explicit-inventory.md).
+## Configure and provision machines
+
+Image names resolve through the
+[Image Factory catalogue](https://cdelgehier.github.io/image-factory/).
+Labstack selects the latest stable image when creating the environment, verifies
+its archive and disk checksums, and saves the selected release for later starts.
+A reference such as `ubuntu-26.04-arm64:0.4.0` requests an exact version.
+
+Each machine has its own ordered `scripts` list. Add shell scripts under
+`provision/` and reference them in the inventory. They run as root through SSH.
+An adjacent `assets/` directory can hold configuration files or application
+sources; Labstack transfers them before running the script and sets
+`PROVISION_ASSETS_DIR` to their guest location.
+
+Use `environment` and `env_file` for guest variables. `healthcheck` defines a
+readiness command, and `depends_on` makes a machine wait for another at a chosen
+provisioning step. Profiles select optional machines. YAML anchors and root
+`x-*` blocks can share settings between machines.
+
+See the [configuration reference](docs/configuration.md) and
+[guest environment guide](docs/environment.md) for the available fields,
+examples and validation rules.
+
+## Daily commands
+
+| Command | Result |
+| --- | --- |
+| `task up` | Create or resume the environment and run its provisioning scripts |
+| `task up:no-provision` | Create or resume VMs without running scripts or healthchecks |
+| `task status` | List the saved machines and their state |
+| `task connect -- node` | Open an SSH shell by machine name |
+| `task down` | Stop the VMs and keep their disks |
+| `task reset` | Recreate the saved environment with the same image versions |
+| `task destroy` | Remove VMs and access keys; keep cached images and logs |
+
+Provisioning scripts should be safe to run again: `task up` reruns them on an
+existing environment. `task up:no-provision` keeps already installed software.
+Reset preserves the provisioning choice recorded in the saved state.
+
+See the [usage guide](docs/usage.md) for inventory selection, lifecycle details,
+file transfers, disk paths and local image overrides.
 
 ## Runtime Flow
 
@@ -160,20 +142,33 @@ flowchart TD
     Health --> Access
 ```
 
-Only written disk data takes space on the Mac. Published ports bind
-to `127.0.0.1`; private guest traffic uses a QEMU socket network.
+Only written disk data takes space on the Mac. Published ports bind to
+`127.0.0.1`; private guest traffic uses a QEMU socket network.
 
-`task down` stops the VMs and keeps their disks.
+Machine disks, access keys and saved state stay under `.state/`. Images are
+cached in `.cache/`, and diagnostic output stays in `logs/`. Progress goes to
+stderr; captured application events use JSON logs.
 
-`task destroy` removes the lab
-and its access keys while keeping the image cache and diagnostic logs.
-Application progress goes to stderr; captured output uses JSON logs.
+## Documentation and development
 
-Package layout, settings, logging and contributor checks:
-[docs/development.md](docs/development.md).
+Start with the [documentation index](docs/README.md) for configuration and
+operating guides. The [development guide](docs/development.md) covers the Python
+package, settings, logging and contributor checks.
 
-## Inventory backups
+```sh
+task ci
+task test:runtime
+```
 
-[machines.yml.cks](machines.yml.cks) and [machines.yml.holmes](machines.yml.holmes)
-are saved inventories. Copy the chosen file over `machines.yml`, then use the
-usual tasks. See the [inventory guide](docs/recipes.md).
+`task ci` checks code and configuration without starting VMs.
+`task test:runtime` checks the running environment.
+
+## Example labs
+
+The repository also contains two separate lab recipes, each with its own
+inventory, provisioning scripts and instructions:
+
+- [CKS practice lab](provision/kubernetes/README.md).
+- [HolmesGPT demo lab](provision/holmesGPT/README.md).
+
+See the [example lab guide](docs/recipes.md) to select or save an inventory.
