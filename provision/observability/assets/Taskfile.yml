@@ -1,0 +1,84 @@
+version: '3'
+
+tasks:
+  default:
+    cmds: [task --list]
+
+  urls:
+    desc: Show demo URLs to open in the Mac browser
+    silent: true
+    cmds:
+      - |
+        printf 'Open in the Mac browser:\n\n'
+        printf '%-18s %s\n' \
+          'Grafana' 'http://127.0.0.1:13000/d/labstack-fastapi' \
+          'Prometheus' 'http://127.0.0.1:19090/' \
+          'Alertmanager' 'http://127.0.0.1:19093/' \
+          'Demo HTTP service' 'http://127.0.0.1:18080/' \
+          'ntfy (alerts)' 'http://127.0.0.1:18081/alerts' \
+          'ntfy (holmes)' 'http://127.0.0.1:18081/holmes' \
+          'Jaeger' 'http://127.0.0.1:16686/'
+
+  status:
+    desc: Show the service, mount, pressure jobs and Holmes bridge
+    cmds: [sudo /usr/local/sbin/labstack-demo status]
+
+  fault:service:
+    desc: Stop FastAPI (DemoHttpUnavailable)
+    cmds: [sudo /usr/local/sbin/labstack-demo fault:service]
+
+  fault:permissions:
+    desc: Deny reading the demo message (DemoApiUnavailable)
+    cmds: [sudo /usr/local/sbin/labstack-demo fault:permissions]
+
+  fault:file:
+    desc: Move the message aside without deleting it (DemoApiUnavailable)
+    cmds: [sudo /usr/local/sbin/labstack-demo fault:file]
+
+  fault:disk:
+    desc: Fill the dedicated demo volume to 95% (DemoDiskSpaceLow)
+    cmds: [sudo /usr/local/sbin/labstack-demo fault:disk]
+
+  fault:mount:
+    desc: Unmount the demo volume (DemoExpectedMountMissing)
+    cmds: [sudo /usr/local/sbin/labstack-demo fault:mount]
+
+  fault:cpu:
+    desc: Saturate the CPUs for up to two minutes (DemoCpuBusy)
+    cmds: [sudo /usr/local/sbin/labstack-demo fault:cpu]
+
+  fault:memory:
+    desc: Fill and hold RAM for up to two minutes (DemoMemoryLow)
+    cmds: [sudo /usr/local/sbin/labstack-demo fault:memory]
+
+  restore:service:
+    desc: Start FastAPI and check its health
+    cmds: [sudo /usr/local/sbin/labstack-demo restore:service]
+
+  restore:permissions:
+    desc: Restore message permissions to 0644
+    cmds: [sudo /usr/local/sbin/labstack-demo restore:permissions]
+
+  restore:file:
+    desc: Restore the original message from the saved file
+    cmds: [sudo /usr/local/sbin/labstack-demo restore:file]
+
+  restore:disk:
+    desc: Remove the demo filler file
+    cmds: [sudo /usr/local/sbin/labstack-demo restore:disk]
+
+  restore:mount:
+    desc: Mount the demo data volume
+    cmds: [sudo /usr/local/sbin/labstack-demo restore:mount]
+
+  restore:cpu:
+    desc: Stop the demo CPU pressure job
+    cmds: [sudo /usr/local/sbin/labstack-demo restore:cpu]
+
+  restore:memory:
+    desc: Stop the demo memory pressure job
+    cmds: [sudo /usr/local/sbin/labstack-demo restore:memory]
+
+  restore:
+    desc: Restore all demo targets and verify the API
+    cmds: [sudo /usr/local/sbin/labstack-demo restore]

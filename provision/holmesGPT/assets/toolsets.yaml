@@ -1,0 +1,27 @@
+toolsets:
+  labstack/demo:
+    enabled: true
+    description: Fixed observations and guarded repairs for the Linux demo VM
+    tags: [core]
+    tools:
+      - name: read_demo_status
+        description: Read demo systemd state, data file permissions, mounts, disk usage, busiest processes and the identified CPU stress job with its share of total VM CPU
+        command: curl --config /etc/holmes/tool-auth --fail-with-body --silent --show-error --max-time 30 http://127.0.0.1:18082/tools/status
+      - name: read_demo_metrics
+        description: Read current firing alerts, HTTP probe results and CPU, memory, filesystem and mount metrics from Prometheus
+        command: curl --config /etc/holmes/tool-auth --fail-with-body --silent --show-error --max-time 30 http://127.0.0.1:18082/tools/metrics
+      - name: read_demo_logs
+        description: Read bounded recent FastAPI errors from Loki, Linux service and CPU stress job journal, and kernel OOM or I/O errors
+        command: curl --config /etc/holmes/tool-auth --fail-with-body --silent --show-error --max-time 30 http://127.0.0.1:18082/tools/logs
+      - name: read_demo_traces
+        description: Read two recent failed FastAPI traces from Jaeger including failed file access spans
+        command: curl --config /etc/holmes/tool-auth --fail-with-body --silent --show-error --max-time 30 http://127.0.0.1:18082/tools/traces
+      - name: start_demo_fastapi
+        description: Start only demo-fastapi after status, metrics and logs confirm it is stopped. Requires a matching firing incident and unused repair budget. Verifies HTTP recovery.
+        command: curl --config /etc/holmes/tool-auth --fail-with-body --silent --show-error --max-time 50 -X POST http://127.0.0.1:18082/actions/start_fastapi
+      - name: restore_demo_file_permissions
+        description: Restore only the regular demo message file from mode 000 to 0644. Requires status, metrics, logs, traces and matching firing incident. Refuses missing mounts or files. Verifies FastAPI HTTP recovery.
+        command: curl --config /etc/holmes/tool-auth --fail-with-body --silent --show-error --max-time 50 -X POST http://127.0.0.1:18082/actions/restore_permissions
+      - name: stop_demo_cpu_stress
+        description: Stop only the identified labstack-demo-cpu transient unit when it consumes at least 50 percent of VM CPU and DemoCpuBusy is firing above 85 percent host CPU. Requires status, metrics, logs and unused repair budget. Checks the same job identity, CPU recovery and alert resolution. Cannot stop memory stress or arbitrary processes.
+        command: curl --config /etc/holmes/tool-auth --fail-with-body --silent --show-error --max-time 50 -X POST http://127.0.0.1:18082/actions/stop_cpu_stress

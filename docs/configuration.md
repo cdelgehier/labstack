@@ -283,6 +283,7 @@ Scripts run as root through SSH. They receive these environment variables:
 | `NODE_COUNT` | Number of active machines |
 | `KUBERNETES_VERSION` | Pinned version, currently `1.37.1` |
 | `SHARED_DIR` | Private guest directory for files needed by later scripts |
+| `PROVISION_ASSETS_DIR` | Guest directory containing the recipe's optional `assets/` files |
 
 Files written to `SHARED_DIR` are copied to `.state/shared/` after a successful script
 and sent to the next guest before its script starts. The Kubernetes recipe uses this
@@ -294,6 +295,14 @@ Script paths must point to existing `.sh` files under `provision/`.
 The active lists are checked before creating the environment.
 A failed script stops provisioning and keeps the VM disks and logs.
 `task up` runs the lists again when resuming, so scripts must be safe to run more than once.
+
+For separate configuration files, Python tools or SOPs, create an `assets/`
+directory beside the shell script. Labstack transfers its regular files before
+running the script, preserving relative paths. Read them through
+`$PROVISION_ASSETS_DIR`. Assets must not contain links or special files and are
+limited to 5 MiB and 1024 entries per recipe. They remain source files in Git;
+there is no host directory mount. Files removed from a recipe are not deleted
+from an existing guest automatically, so install only the files your script needs.
 
 
 ## Check health and order dependencies

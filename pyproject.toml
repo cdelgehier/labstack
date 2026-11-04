@@ -23,8 +23,17 @@ dependencies = [
 labstack = "labstack.main:entrypoint"
 
 [dependency-groups]
+demo-fastapi = [
+    "fastapi<1",
+    "opentelemetry-exporter-otlp-proto-http==1.45.2",
+    "opentelemetry-instrumentation-fastapi>=0.66b2",
+    "opentelemetry-sdk==1.45.2",
+    "uvicorn<1",
+]
 dev = [
+    {include-group = "demo-fastapi"},
     "commitizen>=4.19.2",
+    "httpx2>=2.16.0",
     "pre-commit>=4.7.0",
     "pytest>=9.1.1",
     "pytest-cov>=7.1.0",

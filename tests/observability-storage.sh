@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Run inside the demo VM through task test:observability.
+# Run inside the demo VM as root through SSH.
 set -euo pipefail
 
 if [[ $(hostname) != holmes ]] || [[ ! -f /etc/systemd/system/srv-demo.mount ]]; then
@@ -13,10 +13,20 @@ if [[ -e /srv/demo/.labstack-space-test ]]; then
   exit 1
 fi
 
+bridge_was_active=false
+if systemctl is-active --quiet labstack-holmes-bridge; then
+  curl -fsS http://127.0.0.1:18082/healthz | jq -e ".active == false" >/dev/null
+  systemctl stop labstack-holmes-bridge
+  bridge_was_active=true
+fi
+
 restore_volume() {
   systemctl start srv-demo.mount
   if mountpoint -q /srv/demo; then
     rm -f /srv/demo/.labstack-space-test
+  fi
+  if [[ $bridge_was_active == true ]]; then
+    systemctl start labstack-holmes-bridge
   fi
 }
 trap restore_volume EXIT
