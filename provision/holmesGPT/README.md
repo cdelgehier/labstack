@@ -4,6 +4,11 @@ HolmesGPT investigates Alertmanager alerts from the Linux demo VM. It queries
 the local signals and calls a model server through its OpenAI-compatible API.
 Reports and executor messages are in English.
 
+## Presentation
+
+- [French PDF](../../docs/presentations/holmesgpt/holmesgpt.pdf).
+- [English PDF](../../docs/presentations/holmesgpt/holmesgpt_en.pdf).
+
 ## Start the demo
 
 Select the demo inventory as described in the [inventory guide](../../docs/recipes.md).
