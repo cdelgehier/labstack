@@ -5,11 +5,12 @@ import os
 import subprocess
 import sys
 from pathlib import Path
+from unittest.mock import Mock
 
 import pytest
 import yaml
 
-from labstack import cluster, main
+from labstack import cluster, main, qemu
 from labstack.inventory import read_config, resolve_config
 from labstack.models.config import Config
 from labstack.settings import get_settings
@@ -139,6 +140,38 @@ def test_missing_inventory_fails_before_vm_resources_are_created(tmp_path):
     assert result.returncode == 1
     assert "missing.yml" in json.loads(result.stderr)["error"]
     assert not (tmp_path / ".state").exists()
+
+
+@pytest.mark.parametrize("system", ["Linux", "Darwin"])
+def test_missing_inventory_is_reported_on_unsupported_hosts(
+    tmp_path, monkeypatch, system
+):
+    monkeypatch.setattr(get_settings(), "root", tmp_path)
+    monkeypatch.setattr(get_settings(), "state_dir", tmp_path / ".state")
+    monkeypatch.setattr(qemu.platform, "system", Mock(return_value=system))
+    monkeypatch.setattr(qemu.platform, "machine", Mock(return_value="x86_64"))
+
+    with pytest.raises(FileNotFoundError, match="missing.yml"):
+        cluster.up(None, None, inventory_path=tmp_path / "missing.yml")
+
+    assert not (tmp_path / ".state").exists()
+    assert not get_settings().runtime_dir.exists()
+
+
+def test_valid_inventory_still_rejects_an_unsupported_host(
+    tmp_path, monkeypatch, kubernetes_inventory
+):
+    monkeypatch.setattr(get_settings(), "root", tmp_path)
+    monkeypatch.setattr(get_settings(), "state_dir", tmp_path / ".state")
+    monkeypatch.setattr(qemu.platform, "system", Mock(return_value="Linux"))
+    selected = tmp_path / "machines.yml"
+    selected.write_text(kubernetes_inventory.read_text())
+
+    with pytest.raises(ValueError, match="requires macOS on Apple Silicon"):
+        cluster.up(None, None, no_provision=True, inventory_path=selected)
+
+    assert not (tmp_path / ".state").exists()
+    assert not get_settings().runtime_dir.exists()
 
 
 @pytest.mark.parametrize(
