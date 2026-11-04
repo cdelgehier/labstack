@@ -29,6 +29,8 @@ provision/
 ```
 
 The Holmes backup installs the HTTP service, probes, host metrics, Prometheus,
-Alertmanager, Grafana, a demo data volume and a local notification inbox. See the
+Alertmanager, Grafana, a demo data volume and a local notification inbox. It also
+adds a traced API, Loki logs, Jaeger traces and an OpenTelemetry collector. See the
 [observability guide](../provision/observability/README.md) to run the demo.
-[HolmesGPT](../provision/holmesGPT/README.md), logs and traces will follow later.
+[HolmesGPT](../provision/holmesGPT/README.md) investigates alerts, uses separate
+SOPs and reports guarded repairs or escalations through ntfy.

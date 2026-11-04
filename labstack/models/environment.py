@@ -14,6 +14,7 @@ CONTEXT_VARIABLES = frozenset(
         "NODE_COUNT",
         "KUBERNETES_VERSION",
         "SHARED_DIR",
+        "PROVISION_ASSETS_DIR",
     }
 )
 

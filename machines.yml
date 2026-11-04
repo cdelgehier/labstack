@@ -8,6 +8,10 @@ machines:
     cpus: 4
     memory_mib: 6144
     disk_gib: 20
+    environment:
+      LLM_BASE_URL: http://192.168.1.43:1234/v1 # OpenAI-compatible API on the LAN PC
+      LLM_MODEL: google/gemma-4-12b-qat # Model identifier returned by the API
+      LLM_EXTRA_BODY: '{"reasoning_effort":"low","top_p":0.95,"top_k":64,"min_p":0.0,"presence_penalty":0.0,"repetition_penalty":1.0}' # Optional settings for the current model
     networks:
       nat: {}
       lab:
@@ -19,21 +23,27 @@ machines:
       - "19093:9093" # Alertmanager
       - "18080:8080" # Demo HTTP service
       - "18081:8081" # ntfy alert notifications
+      - "16686:16686" # Jaeger trace explorer
     scripts:
       - provision/base/packages.sh # Common tools: curl, jq, DNS, GPG, rsync and Vim
-      - provision/observability/packages.sh # Apache, Docker/Compose, node exporter and ext4 tools
-      - provision/observability/httpd.sh # Demo HTTP page and its systemd service
+      - provision/observability/packages.sh # Docker/Compose, node exporter, ext4/Python tools, time sync and demo fault tasks
       - provision/observability/storage.sh # Demo ext4 data volume and expected mount
-      - provision/observability/monitoring.sh # Prometheus, probes, Alertmanager, Grafana and ntfy
+      - provision/observability/fastapi.sh # FastAPI/Uvicorn page and API, OpenTelemetry spans and JSON logs
+      - provision/observability/telemetry.sh # Loki, Jaeger and OpenTelemetry collector configuration
+      - provision/observability/monitoring.sh # Prometheus, probes, Alertmanager, Grafana, ntfy and telemetry startup
+      - provision/holmesGPT/install.sh # HolmesGPT, SOPs, guarded repair tools and ntfy investigation reports
     healthcheck:
       test:
         - CMD
         - bash
         - -ec
         - >-
-          systemctl is-active --quiet demo-httpd &&
+          systemctl is-active --quiet demo-fastapi &&
           systemctl is-active --quiet labstack-observability &&
           systemctl is-active --quiet prometheus-node-exporter &&
+          systemctl is-active --quiet labstack-telemetry &&
+          systemctl is-active --quiet labstack-holmes-bridge &&
+          curl --fail --silent http://127.0.0.1:18082/healthz >/dev/null &&
           mountpoint -q /srv/demo
       interval: 5s
       timeout: 10s

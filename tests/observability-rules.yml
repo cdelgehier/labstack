@@ -1,6 +1,37 @@
 rule_files: [/etc/prometheus/alerts.yml]
 evaluation_interval: 5s
 tests:
+  - name: A FastAPI outage and its recovery do not raise a separate API incident
+    interval: 5s
+    input_series:
+      - series: 'probe_success{job="demo-fastapi",instance="holmes",service="demo-fastapi"}'
+        values: '0x5 1x10'
+      - series: 'probe_success{job="demo-api",instance="holmes",service="demo-fastapi"}'
+        values: '0x6 1x9'
+    promql_expr_test:
+      - expr: 'count(ALERTS{alertname="DemoHttpUnavailable",alertstate="firing"}) or vector(0)'
+        eval_time: 20s
+        exp_samples: [{labels: '{}', value: 1}]
+      - expr: 'count(ALERTS{alertname="DemoApiUnavailable",alertstate="firing"}) or vector(0)'
+        eval_time: 20s
+        exp_samples: [{labels: '{}', value: 0}]
+      - expr: 'count(ALERTS{alertname="DemoApiUnavailable",alertstate="firing"}) or vector(0)'
+        eval_time: 40s
+        exp_samples: [{labels: '{}', value: 0}]
+  - name: An API dependency failure with a healthy home page fires and resolves
+    interval: 5s
+    input_series:
+      - series: 'probe_success{job="demo-fastapi",instance="holmes",service="demo-fastapi"}'
+        values: '1x15'
+      - series: 'probe_success{job="demo-api",instance="holmes",service="demo-fastapi"}'
+        values: '0x6 1x9'
+    promql_expr_test:
+      - expr: 'count(ALERTS{alertname="DemoApiUnavailable",alertstate="firing"}) or vector(0)'
+        eval_time: 20s
+        exp_samples: [{labels: '{}', value: 1}]
+      - expr: 'count(ALERTS{alertname="DemoApiUnavailable",alertstate="firing"}) or vector(0)'
+        eval_time: 40s
+        exp_samples: [{labels: '{}', value: 0}]
   - name: Short resource pressure does not fire an alert
     interval: 5s
     input_series:

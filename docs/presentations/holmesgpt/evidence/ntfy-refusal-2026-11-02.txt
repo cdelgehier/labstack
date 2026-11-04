@@ -1,0 +1,7 @@
+Source : extrait de notification ntfy copié par Cédric dans la conversation.
+Affichage source : 02/11/2026, 21:19, Holmes demo.
+Le texte ci-dessous est celui du modèle tel que partagé. Le résultat
+indépendant de l'exécuteur et son journal ne figurent pas dans cet extrait.
+
+Holmes — DemoHttpUnavailable [repair]
+L'outil `restore_demo_file_permissions` a échoué avec une erreur 403 : "Repair needs SOP mode, matching incident and evidence". Cela signifie que les conditions strictes de la SOP ne sont pas totalement satisfaites

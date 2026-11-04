@@ -319,6 +319,52 @@ def test_root_scripts_receive_saved_environment_without_values_in_ssh_arguments(
     assert value not in (tmp_path / "cp-provision.log").read_text()
 
 
+def test_recipe_assets_reach_the_script_as_separate_files(
+    script_inventory, tmp_path, monkeypatch
+):
+    assets = tmp_path / "provision/example/assets/sops/httpd"
+    assets.mkdir(parents=True)
+    (assets / "SKILL.md").write_text("Inspect the service before starting it.\n")
+    config = Config.model_validate(script_inventory)
+    node = nodes(config)[0]
+    state = State(
+        config=config,
+        instance_id="assets",
+        base_images=dict.fromkeys(config.active_machines, tmp_path / "base"),
+    )
+    script = tmp_path / "provision/example/server.sh"
+    script.write_text('cat "$PROVISION_ASSETS_DIR/sops/httpd/SKILL.md"\n')
+    monkeypatch.setattr(provisioning, "ssh_command", LocalSSHFake(tmp_path))
+    monkeypatch.setattr(provisioning, "ASSETS_ROOT", tmp_path / "guest-assets")
+
+    provisioning.run_script(node, "provision/example/server.sh", state)
+
+    assert "Inspect the service" in (tmp_path / "cp-provision.log").read_text()
+
+
+def test_recipe_assets_reject_links_before_the_guest_command(
+    script_inventory, tmp_path, monkeypatch
+):
+    assets = tmp_path / "provision/example/assets"
+    assets.mkdir()
+    (tmp_path / "private").write_text("private")
+    (assets / "escape").symlink_to(tmp_path / "private")
+    script_inventory["machines"]["cp"]["scripts"] = ["provision/example/server.sh"]
+    runner = Mock()
+    monkeypatch.setattr(provisioning, "run_script", runner)
+    config = Config.model_validate(script_inventory)
+    state = State(
+        config=config,
+        instance_id="assets",
+        base_images=dict.fromkeys(config.active_machines, tmp_path / "base"),
+    )
+
+    with pytest.raises(ValueError, match="asset"):
+        provisioning.provision(state)
+
+    assert not runner.called
+
+
 def test_worker_context_uses_the_control_plane_even_when_the_worker_is_first(
     tmp_path, monkeypatch, kubernetes_inventory
 ):

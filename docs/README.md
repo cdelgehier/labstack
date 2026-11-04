@@ -11,6 +11,7 @@ Run all commands from the project directory.
 | [Inventory without YAML anchors](explicit-inventory.md) | A complete example with every VM written out and lists expanded |
 | [Usage](usage.md) | Manual installation, guest access, lifecycle commands and disk locations |
 | [Development](development.md) | Python package layout, settings, logging and checks |
+| [HolmesGPT presentation](presentations/holmesgpt/README.md) | Slidev talk, speaker notes and live demo scenarios |
 
 The active recipe provides the [HTTP monitoring demo](../provision/observability/README.md).
 The saved `machines.yml.cks` recipe creates a Kubernetes cluster with Cilium.

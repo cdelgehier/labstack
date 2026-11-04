@@ -1,0 +1,9 @@
+{
+  "id": "DwCK8jRC4IGq",
+  "time": 1793788617,
+  "expires": 1793810217,
+  "event": "message",
+  "topic": "holmes",
+  "title": "Holmes demo",
+  "message": "Holmes — DemoCpuBusy\nThe executor result for `stop_demo_cpu_stress` is: `{\"outcome\": \"Verified action: stop_cpu_stress. Demo CPU job stopped, host CPU below 85% and DemoCpuBusy cleared.\"}`.\n\nI have completed all the steps of the SOP and successfully resolved the incident.\n\n**Facts:**\n- Alert: `DemoCpuBusy` firing.\n- `host_cpu_busy_percent`: 99.98%.\n- `labstack-demo-cpu.service` was active with 98.4% CPU usage.\n- FastAPI probes were healthy (200 OK).\n\n**Proven cause:**\nThe `labstack-demo-cpu.service` (stress-ng) was intentionally or unintentionally running and consuming nearly 100% of the host CPU.\n\n**Action:**\nExecuted `stop_demo_cpu_stress` to stop the identified CPU stress job.\n\n**Verification:**\nThe tool successfully stopped the CPU stress job, verified host CPU usage dropped below 85%, and the `DemoCpuBusy` alert was cleared.\n\nExecutor: Verified action: stop_cpu_stress. Demo CPU job stopped, host CPU below 85% and DemoCpuBusy cleared.\nIncident: 340f34c77e58"
+}

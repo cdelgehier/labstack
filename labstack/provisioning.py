@@ -1,7 +1,10 @@
 """Run dependency-ordered inventory scripts and exchange their private shared files."""
 
+import base64
+import io
 import shlex
 import subprocess
+import tarfile
 from pathlib import Path
 
 from labstack.environment import shell_environment
@@ -16,6 +19,59 @@ from labstack.settings import KUBERNETES_VERSION, get_settings
 from labstack.ssh import remote, ssh_command
 
 logger = get_logger(__name__)
+ASSETS_ROOT = Path("/var/lib/labstack/recipes")
+
+
+def recipe_assets(filename: str) -> list[Path]:
+    """Find optional recipe assets and reject links or special files before SSH."""
+    directory = script_path(filename).parent / "assets"
+    if not directory.exists() and not directory.is_symlink():
+        return []
+    if not directory.is_dir() or directory.is_symlink():
+        raise ValueError(f"Invalid recipe asset directory: {filename}.")
+    paths = [
+        directory,
+        *[
+            path
+            for path in directory.rglob("*")
+            if "__pycache__" not in path.relative_to(directory).parts
+        ],
+    ]
+    total = 0
+    for path in paths:
+        if path.is_symlink() or not (path.is_dir() or path.is_file()):
+            raise ValueError(f"Invalid recipe asset: {filename}.")
+        if path.is_file():
+            total += path.stat().st_size
+    if total > 5 * 1024**2 or len(paths) > 1024:
+        raise ValueError(f"Recipe assets exceed the transfer limit: {filename}.")
+    return [path for path in paths if path.is_file()]
+
+
+def asset_script(filename: str) -> str:
+    """Send separate source files in the script stream without a shared mount."""
+    files = recipe_assets(filename)
+    if not files:
+        return ""
+    source = script_path(filename).parent / "assets"
+    destination = ASSETS_ROOT / source.relative_to(get_settings().root / "provision")
+    stream = io.BytesIO()
+    with tarfile.open(fileobj=stream, mode="w:gz") as archive:
+        for path in files:
+            data = path.read_bytes()
+            entry = tarfile.TarInfo(path.relative_to(source).as_posix())
+            entry.size = len(data)
+            entry.mode = 0o644
+            archive.addfile(entry, io.BytesIO(data))
+    encoded = base64.b64encode(stream.getvalue()).decode()
+    target = shlex.quote(str(destination))
+    return (
+        "set -euo pipefail\n"
+        f"export PROVISION_ASSETS_DIR={target}\n"
+        f"install -d -m 0755 {target}\n"
+        f"base64 --decode <<'LABSTACK_ASSETS' | tar -xz -C {target}\n"
+        f"{encoded}\nLABSTACK_ASSETS\n"
+    )
 
 
 def script_path(filename: str) -> Path:
@@ -47,6 +103,7 @@ def validate_scripts(config: Config) -> None:
     for node in nodes(config):
         for filename in node.scripts:
             script_path(filename)
+            recipe_assets(filename)
 
 
 def sync_shared(node: Node, *, download: bool = False) -> None:
@@ -110,6 +167,7 @@ def run_script(node: Node, filename: str, state: State) -> None:
     # Load user values inside the root shell; sudo would otherwise discard them.
     script = (
         shell_environment(state.environment_for(node.name))
+        + asset_script(filename)
         + script_path(filename).read_text()
     )
     environment = {

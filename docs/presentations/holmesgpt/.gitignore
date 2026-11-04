@@ -1,0 +1,5 @@
+node_modules/
+.slidev/
+dist/
+dist_en/
+slides-export/
