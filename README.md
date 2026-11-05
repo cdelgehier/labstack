@@ -117,6 +117,8 @@ examples and validation rules.
 | `task down` | Stop the VMs and keep their disks |
 | `task reset` | Recreate the saved environment with the same image versions |
 | `task destroy` | Remove VMs and access keys; keep cached images and logs |
+| `task images:prune:dry-run` | List unused project-cached base images |
+| `task images:prune` | Remove unused project-cached base images |
 
 Provisioning scripts should be safe to run again: `task up` reruns them on an
 existing environment. `task up:no-provision` keeps already installed software.

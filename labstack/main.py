@@ -11,6 +11,7 @@ from labstack.cluster import destroy, down, read_state, reset, up
 from labstack.inventory import nodes, primary_node, select_node
 from labstack.kubernetes import export_kubeconfig, prepare_client
 from labstack.logger import configure_logging, get_logger
+from labstack.pruning import prune_images
 from labstack.qemu import running
 from labstack.settings import get_settings
 from labstack.ssh import remote, ssh_command
@@ -42,11 +43,17 @@ def main() -> None:
             "test",
             "client",
             "kubectl",
+            "images-prune",
         ],
     )
     parser.add_argument("--node", help="Exact machine name from the saved inventory.")
     parser.add_argument("--command")
     parser.add_argument("--no-provision", action="store_true")
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="List unused images without removing them.",
+    )
     parser.add_argument(
         "-f",
         "--inventory",
@@ -58,6 +65,8 @@ def main() -> None:
         parser.error("--inventory is only available with up.")
     if args.no_provision and args.action != "up":
         parser.error("--no-provision is only available with up.")
+    if args.dry_run and args.action != "images-prune":
+        parser.error("--dry-run is only available with images-prune.")
     if args.action in {"ssh", "exec"} and not args.node:
         parser.error("Provide a machine name with --node (for example, --node cp).")
     # Keys, kubeconfig and shared recipe files must stay private from their first write.
@@ -99,6 +108,13 @@ def main() -> None:
             return
         if args.action == "destroy":
             destroy()
+            return
+        if args.action == "images-prune":
+            images = prune_images(dry_run=args.dry_run)
+            action = "Would remove" if args.dry_run else "Removed"
+            for image in images:
+                print(f"{action} {image}")
+            print(f"{action} {len(images)} unused base image(s).")
             return
         state = read_state()
         if args.action == "down":

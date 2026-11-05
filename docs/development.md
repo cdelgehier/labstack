@@ -39,6 +39,9 @@ It checks custom IPs and ports across cloud-init, QEMU, SSH and kubeconfig, and 
 It also rejects base disks with backing files when QEMU is installed.
 Image tests cover catalogue and manifest validation, stable version selection,
 fixed versions, shared image resolution, offline restarts and resets, and local disk overrides.
+Prune tests use real QCOW2 backing chains without starting guests. They cover saved
+state and reset pins, both resource layouts, previews, invalid references, access
+errors, custom-cache refusal and the lifecycle lock.
 Recovery tests cover partial state writes, reset preflight failures and retrying a
 reset before new state exists, and cancelling that reset with destroy. They also
 check older monitor and PID paths, moving stopped resources without losing data,
