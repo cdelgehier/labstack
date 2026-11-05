@@ -82,6 +82,8 @@ If your installation creates `/etc/kubernetes/admin.conf` and installs kubectl o
 | `task down` | Stop the VMs and keep disks |
 | `task reset` | Recreate the saved topology; run scripts if provisioning previously completed |
 | `task destroy` | Stop the VMs and remove disks, keys and kubeconfig |
+| `task images:prune:dry-run` | Preview unused cached base images |
+| `task images:prune` | Remove unused cached base images |
 | `task test:runtime` | Check the running guests and, when selected, the Kubernetes cluster |
 | `task ci` | Check Python, shell scripts and unit tests without starting VMs |
 
@@ -119,6 +121,37 @@ run `task reset` again to keep the same image pins, profiles and provisioning ch
 An ordinary `task up` is blocked while a reset is pending. To cancel it and remove
 the unfinished lab, use `task destroy`; cached images and logs are kept.
 State updates are atomic: an interrupted write leaves the previous saved state readable.
+
+## Prune unused local images
+
+Preview the candidates, then remove them:
+
+```sh
+task images:prune:dry-run
+task images:prune
+```
+
+`task images:prune -- --dry-run` is another way to preview. Other Task arguments
+are rejected before any files are removed.
+
+The matching CLI commands are `uv run --locked labstack images-prune --dry-run`
+and `uv run --locked labstack images-prune`. Both work without an inventory or
+an existing VM environment. They list each candidate and the image count.
+
+Pruning keeps base images referenced by `.state/state.json`, a pending
+`.reset.json`, or any actual VM QCOW2 backing chain in the current or legacy
+resource layout. Stopped VMs still need their base images. References are checked
+before deletion; invalid state, unreadable directories or disk inspection errors
+stop the operation. The same lifecycle lock prevents overlap with startup or reset.
+
+Only regular `base-<sha256>.qcow2` files in the project's own `.cache/` are eligible.
+Symlinks, kubectl, partial downloads, logs and files with other names are kept.
+Custom `LABSTACK_CACHE_DIR` paths are refused because another lab may use them.
+The project's `.cache/` must remain dedicated to this lab; references from other
+projects or manually created disks outside `.state/` are not inspected.
+
+After `task destroy`, all unreferenced base images can be removed. A later
+`task up` downloads or copies its required image again.
 
 ## Use a disk from an Image Factory build
 

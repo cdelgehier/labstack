@@ -47,6 +47,21 @@ tasks:
     desc: Recreate the saved topology and provisioning choice from the same image
     cmds: [uv run --locked labstack reset]
 
+  images:prune:
+    desc: Remove cached base images unused by VM disks or pending resets
+    preconditions:
+      - sh: test -z {{.CLI_ARGS | shellQuote}} || test {{.CLI_ARGS | shellQuote}} = --dry-run
+        msg: 'Use task images:prune or task images:prune -- --dry-run.'
+    cmds:
+      - 'uv run --locked labstack images-prune {{if .CLI_ARGS}}{{.CLI_ARGS | shellQuote}}{{end}}'
+
+  images:prune:dry-run:
+    desc: List unused cached base images without removing them
+    preconditions:
+      - sh: test -z {{.CLI_ARGS | shellQuote}}
+        msg: 'task images:prune:dry-run does not accept arguments.'
+    cmds: [uv run --locked labstack images-prune --dry-run]
+
   status:
     desc: Show the nodes and Kubernetes status
     cmds: [uv run --locked labstack status]
