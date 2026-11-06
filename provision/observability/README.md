@@ -145,6 +145,13 @@ Open the API URL. Its JSON response includes a `trace_id`; the same ID appears
 in the API log and its Jaeger trace. Probes also create requests every five
 seconds so the dashboard has fresh examples.
 
+The dashboard's **API traces** table lists recent `/api/check` requests. Click a
+Trace ID, then **Show request spans in this dashboard**. The **Request spans**
+panel below shows the HTTP request and its **read demo message** child span,
+their timing, error tags and exception details. Select a request first; the
+span panel is empty until a Trace ID is selected. You can also paste an ID into
+the dashboard's **Trace ID** field.
+
 In Grafana's **API logs**, open a row's **Log menu**, then **Show log details**.
 Under **Links**, follow **Jaeger** next to **TraceID**. The trace shows the HTTP
 request and its child operation, **read demo message**.

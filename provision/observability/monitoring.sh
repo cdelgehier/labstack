@@ -329,17 +329,43 @@ panels.append({
     "datasource": {"type": "prometheus", "uid": "prometheus"},
     "targets": [{"refId": "A", "expr": 'probe_success{job="demo-api"}'}],
 })
-for panel_id, title, service in [
-    (13, "API logs — open TraceID to inspect the request", "demo-fastapi"),
-    (14, "Linux service logs", "linux"),
+for panel_id, title, service, x, y, width in [
+    (13, "API logs — open TraceID to inspect the request", "demo-fastapi", 12, 47, 12),
+    (14, "Linux service logs", "linux", 0, 74, 24),
 ]:
     panels.append({
         "id": panel_id, "title": title, "type": "logs",
-        "gridPos": {"x": 0, "y": 47 + (panel_id - 13) * 9, "w": 24, "h": 9},
+        "gridPos": {"x": x, "y": y, "w": width, "h": 9},
         "datasource": {"type": "loki", "uid": "loki"},
         "targets": [{"refId": "A", "expr": '{service_name="' + service + '"}', "queryType": "range"}],
         "options": {"showTime": True, "wrapLogMessage": True, "sortOrder": "Descending"},
     })
+# Keep the selected request in this dashboard instead of opening Explore.
+trace_link = "/d/labstack-fastapi/labstack-http-service?" + \
+    "${__url_time_range}&refresh=5s&var-trace_id=${__value.raw}"
+panels.append({
+    "id": 15, "title": "API traces — select a Trace ID to view its spans below", "type": "table",
+    "gridPos": {"x": 0, "y": 47, "w": 12, "h": 9},
+    "datasource": {"type": "jaeger", "uid": "jaeger"},
+    "targets": [{"refId": "A", "queryType": "search", "service": "demo-fastapi",
+                 "operation": "GET /api/check", "limit": 20}],
+    "fieldConfig": {"defaults": {}, "overrides": [{
+        "matcher": {"id": "byName", "options": "traceID"},
+        "properties": [{"id": "links", "value": [{
+            "title": "Show request spans in this dashboard", "url": trace_link,
+        }]}],
+    }]},
+    "transformations": [{"id": "organize", "options": {"excludeByName": {"traceName": True}}}],
+    "options": {"showHeader": True, "cellHeight": "sm"},
+})
+panels.append({
+    "id": 16, "title": "Request spans — select a Trace ID above", "type": "traces",
+    "description": "Select an API trace above to inspect its HTTP span, file-read span, duration and errors here.",
+    "gridPos": {"x": 0, "y": 56, "w": 24, "h": 18},
+    "datasource": {"type": "jaeger", "uid": "jaeger"},
+    "targets": [{"refId": "A", "queryType": "", "query": "${trace_id}"}],
+    "options": {},
+})
 panes = {"left": {"datasource": "jaeger", "queries": [
     {"refId": "A", "queryType": "search", "service": "demo-fastapi"},
 ], "range": {"from": "now-15m", "to": "now"}}}
@@ -347,7 +373,10 @@ links = [{"title": "Explore API traces", "type": "link", "url": "/explore?" +
           urlencode({"schemaVersion": 1, "panes": json.dumps(panes)})}]
 with open(sys.argv[1], "w") as output:
     json.dump({"uid": "labstack-fastapi", "title": "Labstack HTTP service", "schemaVersion": 39,
-               "version": 1, "refresh": "5s", "time": {"from": "now-15m", "to": "now"}, "panels": panels, "links": links}, output)
+               "version": 1, "refresh": "5s", "time": {"from": "now-15m", "to": "now"},
+               "templating": {"list": [{"name": "trace_id", "label": "Trace ID", "type": "textbox",
+                                          "query": "", "current": {"text": "", "value": ""}}]},
+               "panels": panels, "links": links}, output)
 PY
 cat >/etc/systemd/system/labstack-observability.service <<'EOF'
 [Unit]
