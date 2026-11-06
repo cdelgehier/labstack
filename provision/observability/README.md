@@ -79,6 +79,10 @@ It fills its pages once, then sleeps while holding them. Expect a brief CPU spik
 during allocation; steady CPU saturation belongs to the separate CPU scenario.
 Use the matching recovery task to stop pressure early. `restore` recovers the
 mount, original message, permissions, free space and service, and stops both jobs.
+If `fault:memory` reports that the test is already running, use `task restore:memory`
+before starting it again, or wait for its two-minute limit. If the healthy VM has
+too little available RAM, the task reports the available and reserved amounts
+and refuses to add pressure. Use `task status` to inspect that baseline.
 
 From the repository on the Mac, run the checks through SSH:
 

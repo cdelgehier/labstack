@@ -89,6 +89,12 @@ task restore:cpu
 task fault:memory
 wait_for_alert DemoMemoryLow
 [[ $(systemctl show labstack-demo-memory -p MemorySwapMax --value) == 0 ]]
+# A second injection must explain the existing job, not report a low-memory baseline.
+if repeated_fault=$(task fault:memory 2>&1); then
+  printf 'FAIL: a second memory fault must refuse to start another job\n' >&2
+  exit 1
+fi
+[[ $repeated_fault == *'already running'* && $repeated_fault == *'restore:memory'* ]]
 # After allocation, the RAM fault must hold its pages without burning a CPU core.
 cpu_before=$(systemctl show labstack-demo-memory -p CPUUsageNSec --value)
 sleep 5
