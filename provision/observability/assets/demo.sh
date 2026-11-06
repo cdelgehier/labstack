@@ -109,12 +109,16 @@ case "$1" in
     ;;
   restore:cpu) stop_pressure labstack-demo-cpu ;;
   fault:memory)
+    if systemctl is-active --quiet labstack-demo-memory; then
+      fail 'The memory pressure test is already running. Run task restore:memory before starting it again.'
+    fi
     total=$(awk '/^MemTotal:/ {printf "%.0f\n", $2 * 1024}' /proc/meminfo)
     available=$(awk '/^MemAvailable:/ {printf "%.0f\n", $2 * 1024}' /proc/meminfo)
     reserve=$((total * 8 / 100))
     ((reserve >= 268435456)) || reserve=268435456
     bytes=$((available - reserve))
-    ((bytes > 134217728)) || fail 'Not enough available memory for a controlled pressure test.'
+    ((bytes > 134217728)) || fail \
+      "Not enough available memory for a controlled pressure test. Available: $((available / 1048576)) MiB; reserved: $((reserve / 1048576)) MiB; more than 128 MiB must remain for the job. Run task status."
     # Reserve headroom and make this bounded job the first OOM victim if demand changes.
     systemd-run --collect --unit=labstack-demo-memory --property=RuntimeMaxSec=120s \
       --property="MemoryMax=$((bytes + 134217728))" --property=MemorySwapMax=0 \
